@@ -58,10 +58,74 @@ if [ "$EUID" -ne 0 ]; then
 fi
 
 # =====================================================
+# Fonction pour charger les variables d'environnement
+# =====================================================
+load_env() {
+    # Se déplacer dans le répertoire du script
+    SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+    cd "$SCRIPT_DIR"
+
+    log_message "Chargement des variables d'environnement..."
+    log_message "Répertoire du script : $SCRIPT_DIR"
+    log_message "Répertoire courant : $(pwd)"
+    log_message "Contenu du répertoire :"
+    ls -la
+
+    if [ -f .env ]; then
+        log_message "Fichier .env trouvé, début du chargement..."
+        log_message "Contenu du fichier .env :"
+        cat .env
+        log_message "Début du traitement ligne par ligne..."
+
+        while IFS= read -r line; do
+            # Ignorer les lignes vides et les commentaires
+            if [[ -z "$line" ]]; then
+                log_warning "Ligne vide ignorée"
+                continue
+            fi
+            if [[ "$line" =~ ^[[:space:]]*# ]]; then
+                log_warning "Commentaire ignoré : $line"
+                continue
+            fi
+
+            # Extraire la clé et la valeur
+            if [[ "$line" =~ ^([^=]+)=(.*)$ ]]; then
+                key="${BASH_REMATCH[1]}"
+                value="${BASH_REMATCH[2]}"
+
+                # Nettoyer la valeur (supprimer les commentaires et les espaces)
+                value=$(echo "$value" | sed 's/#.*$//' | xargs)
+
+                # Exporter la variable
+                export "$key=$value"
+                log_message "Variable chargée : $key=$value"
+            else
+                log_warning "Ligne ignorée (format invalide) : $line"
+            fi
+        done < .env
+
+        log_message "Fin du chargement des variables"
+    else
+        log_warning "Fichier .env non trouvé, utilisation des valeurs par défaut"
+    fi
+
+    # Vérification des variables obligatoires
+    REQUIRED_VARS=("DYNDNS_DOMAIN" "OVH_APPLICATION_SECRET" "NGINX_SSL_EMAIL")
+    for var in "${REQUIRED_VARS[@]}"; do
+        if [ -z "${!var}" ]; then
+            log_error "Variable obligatoire non définie : $var"
+            exit 1
+        fi
+    done
+
+    log_message "Variables d'environnement chargées :"
+    env | grep -E '^DYNDNS_|^OVH_|^NGINX_'
+}
+
+# =====================================================
 # Chargement des variables d'environnement
 # =====================================================
-log_message "Chargement des variables d'environnement..."
-source /hebergement_serveur/scripts/load_env.sh
+load_env
 
 # =====================================================
 # Installation des outils de monitoring
@@ -85,10 +149,17 @@ ssl=yes
 use=web, web=checkip.dyndns.org/, web-skip='IP Address'
 protocol=dyndns2
 server=www.ovh.com
-login=$DYNDNS_DOMAIN
-password=$OVH_APPLICATION_SECRET
+login=$DYNDNS_USERNAME
+password=$DYNDNS_PASSWORD
 $DYNDNS_DOMAIN
 EOF
+
+# Redémarrage de ddclient
+systemctl restart ddclient
+
+# Vérification de la configuration DNS
+log_message "Vérification de la configuration DNS..."
+nslookup $DYNDNS_DOMAIN
 
 # =====================================================
 # Configuration de Traefik comme Reverse Proxy
@@ -230,6 +301,14 @@ systemctl restart ddclient
 # Démarrage des conteneurs
 cd /hebergement_serveur/config/docker-compose
 docker compose up -d
+
+# Vérification des conteneurs
+log_message "Vérification des conteneurs..."
+docker ps
+
+# Vérification des logs
+log_message "Vérification des logs de Traefik..."
+docker logs traefik
 
 # =====================================================
 # Message de fin et instructions

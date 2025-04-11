@@ -246,4 +246,158 @@ sudo systemctl status sshd
 
 ### 3.2 Configuration de l'authentification SSH
 
-La clé SSH doit être dans le répertoire standard `
+La clé SSH doit être dans le répertoire standard `~/.ssh/` sur votre machine locale.
+
+## 4. Installation du serveur
+
+### 4.1 Exécution du script d'installation
+
+1. Une fois les prérequis installés, lancez le script d'installation :
+```bash
+cd /hebergement_serveur
+sudo chmod +x *.sh && sudo ./install_server.sh
+```
+
+Le script va :
+- Installer les outils de monitoring (Prometheus, Node Exporter)
+- Configurer ddclient pour la gestion DNS dynamique
+- Configurer Traefik comme reverse proxy
+- Déployer les services conteneurisés (Traefik, Portainer)
+- Configurer les certificats SSL
+
+2. Vérifiez l'installation :
+```bash
+# Vérifier les conteneurs Docker
+docker ps
+
+# Vérifier les services
+sudo systemctl status ddclient
+sudo systemctl status prometheus
+sudo systemctl status node-exporter
+
+# Vérifier les certificats SSL
+ls -la /hebergement_serveur/certs/
+```
+
+3. Accédez aux interfaces web :
+- Traefik : https://traefik.votre-domaine.com
+- Portainer : https://portainer.votre-domaine.com
+
+### 4.2 Dépannage
+
+Si vous rencontrez des problèmes :
+
+1. Vérifiez les logs des conteneurs :
+```bash
+docker logs traefik
+docker logs portainer
+```
+
+2. Vérifiez les logs des services :
+```bash
+sudo journalctl -u ddclient
+sudo journalctl -u prometheus
+sudo journalctl -u node-exporter
+```
+
+3. Vérifiez la configuration DNS :
+```bash
+nslookup votre-domaine.com
+```
+
+4. Vérifiez les certificats SSL :
+```bash
+openssl x509 -in /hebergement_serveur/certs/acme.json -text -noout
+```
+
+## 5. Maintenance
+
+### 5.1 Mise à jour des services
+
+Pour mettre à jour les services :
+
+1. Arrêtez les conteneurs :
+```bash
+cd /hebergement_serveur/config/docker-compose
+docker compose down
+```
+
+2. Mettez à jour les images :
+```bash
+docker compose pull
+```
+
+3. Redémarrez les conteneurs :
+```bash
+docker compose up -d
+```
+
+### 5.2 Sauvegarde
+
+Pour sauvegarder les données importantes :
+
+1. Sauvegardez les configurations :
+```bash
+tar -czf /hebergement_serveur/backup/config_$(date +%Y%m%d).tar.gz /hebergement_serveur/config/
+```
+
+2. Sauvegardez les données :
+```bash
+tar -czf /hebergement_serveur/backup/data_$(date +%Y%m%d).tar.gz /hebergement_serveur/data/
+```
+
+3. Sauvegardez les certificats :
+```bash
+tar -czf /hebergement_serveur/backup/certs_$(date +%Y%m%d).tar.gz /hebergement_serveur/certs/
+```
+
+### 5.3 Surveillance
+
+Pour surveiller l'état du serveur :
+
+1. Utilisez Portainer pour surveiller les conteneurs
+2. Consultez les métriques dans Prometheus
+3. Configurez des alertes dans Prometheus
+4. Surveillez les logs dans Traefik
+
+## 6. Sécurité
+
+### 6.1 Bonnes pratiques
+
+1. Mettez à jour régulièrement le système :
+```bash
+sudo apt update && sudo apt upgrade -y
+```
+
+2. Maintenez les conteneurs à jour :
+```bash
+docker compose pull && docker compose up -d
+```
+
+3. Sauvegardez régulièrement les données
+4. Surveillez les logs et les alertes
+5. Limitez l'accès aux interfaces d'administration
+
+### 6.2 Audit de sécurité
+
+Effectuez régulièrement un audit de sécurité :
+
+1. Vérifiez les vulnérabilités connues :
+```bash
+sudo apt list --upgradable
+```
+
+2. Vérifiez les ports ouverts :
+```bash
+sudo netstat -tulpn
+```
+
+3. Vérifiez les logs de sécurité :
+```bash
+sudo tail -f /var/log/auth.log
+```
+
+4. Vérifiez les tentatives de connexion échouées :
+```bash
+sudo fail2ban-client status
+```
