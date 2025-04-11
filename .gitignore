@@ -1,7 +1,24 @@
-# Fichiers de configuration sensibles
+# Clés SSH
+/ssh/
+/ssh/*
+!/ssh/.gitkeep
+
+# Certificats SSL
+/ssl/
+/ssl/*
+!/ssl/.gitkeep
+/ssl2/
+/ssl2/*
+!/ssl2/.gitkeep
+
+# Fichiers sensibles
 .env
 *.env
 .env.*
+*.log
+*.swp
+*.swo
+*~
 
 # Fichiers de certificats
 *.pem
@@ -12,7 +29,6 @@
 *.pfx
 
 # Fichiers de logs
-*.log
 logs/
 log/
 
@@ -35,8 +51,6 @@ Thumbs.db
 # Fichiers IDE
 .idea/
 .vscode/
-*.swp
-*.swo
 
 # Fichiers Docker
 docker-compose.override.yml
