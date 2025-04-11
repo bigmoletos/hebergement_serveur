@@ -68,66 +68,75 @@ if [ "$EUID" -ne 0 ]; then
 fi
 
 # =====================================================
-# Chargement des variables d'environnement
-# Ces variables sont définies dans le fichier .env
-# et sont nécessaires pour la configuration.
-# Si le fichier n'existe pas, on utilise des valeurs
-# par défaut pour permettre l'installation initiale.
+# Fonction pour charger les variables d'environnement
 # =====================================================
 load_env() {
-    local env_file=".env"
-    if [ -f "$env_file" ]; then
-        log_message "Chargement du fichier $env_file..."
-        # Lecture ligne par ligne du fichier .env
+    # Se déplacer dans le répertoire du script
+    SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+    cd "$SCRIPT_DIR"
+
+    log_message "Chargement des variables d'environnement..."
+    log_message "Répertoire du script : $SCRIPT_DIR"
+    log_message "Répertoire courant : $(pwd)"
+    log_message "Contenu du répertoire :"
+    ls -la
+
+    # Définir l'utilisateur par défaut
+    SERVER_USER="user"
+
+    if [ -f .env ]; then
+        log_message "Fichier .env trouvé, début du chargement..."
+        log_message "Contenu du fichier .env :"
+        cat .env
+        log_message "Début du traitement ligne par ligne..."
+
         while IFS= read -r line; do
             # Ignorer les lignes vides et les commentaires
-            [[ -z "$line" || "$line" =~ ^# ]] && continue
-
-            # Extraire la clé et la valeur (tout avant le premier #)
-            key=$(echo "$line" | cut -d '=' -f 1 | tr -d ' ' | tr -d '"' | tr -d "'")
-
-            # Pour les mots de passe, préserver les guillemets
-            if [[ "$key" == *"PASSWORD"* || "$key" == *"SECRET"* ]]; then
-                value=$(echo "$line" | cut -d '=' -f 2- | cut -d '#' -f 1 | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
-            else
-                value=$(echo "$line" | cut -d '=' -f 2- | cut -d '#' -f 1 | tr -d ' ' | tr -d '"' | tr -d "'")
+            if [[ -z "$line" ]]; then
+                log_warning "Ligne vide ignorée"
+                continue
+            fi
+            if [[ "$line" =~ ^[[:space:]]*# ]]; then
+                log_warning "Commentaire ignoré : $line"
+                continue
             fi
 
-            # Vérifier que la ligne contient bien une clé et une valeur
-            if [[ -n "$key" && -n "$value" ]]; then
+            # Extraire la clé et la valeur
+            if [[ "$line" =~ ^([^=]+)=(.*)$ ]]; then
+                key="${BASH_REMATCH[1]}"
+                value="${BASH_REMATCH[2]}"
+
+                # Nettoyer la valeur (supprimer les commentaires et les espaces)
+                value=$(echo "$value" | sed 's/#.*$//' | xargs)
+
                 # Exporter la variable
                 export "$key=$value"
                 log_message "Variable chargée : $key=$value"
+            else
+                log_warning "Ligne ignorée (format invalide) : $line"
             fi
-        done < "$env_file"
+        done < .env
+
+        log_message "Fin du chargement des variables"
     else
-        log_warning "Le fichier $env_file n'existe pas. Utilisation des valeurs par défaut."
+        log_warning "Fichier .env non trouvé, utilisation des valeurs par défaut"
     fi
+
+    # Vérifier si SERVER_USER est défini dans .env
+    if [ -z "$SERVER_USER" ]; then
+        log_warning "SERVER_USER non défini dans .env, utilisation de l'utilisateur par défaut"
+        SERVER_USER="user"
+    fi
+
+    log_message "Utilisation de l'utilisateur : $SERVER_USER"
+    log_message "Variables d'environnement chargées :"
+    env | grep -E '^SERVER_|^DOCKER_|^TRAEFIK_'
 }
 
+# =====================================================
 # Chargement des variables d'environnement
+# =====================================================
 load_env
-
-# Valeurs par défaut si non définies
-if [ -z "$SERVER_USER" ]; then
-    log_warning "SERVER_USER non défini dans .env, utilisation de l'utilisateur courant"
-    SERVER_USER=$(whoami)
-fi
-
-# Vérification et nettoyage du nom d'utilisateur
-SERVER_USER=$(echo "$SERVER_USER" | tr -d '#' | tr -d ' ' | tr -d '"' | tr -d "'" | tr -d '#' | tr -d ':' | tr -d ';' | tr -d '|' | tr -d '&' | tr -d '*' | tr -d '+' | tr -d '-' | tr -d '/' | tr -d '\\')
-if [ -z "$SERVER_USER" ]; then
-    log_error "Le nom d'utilisateur est vide après nettoyage"
-    exit 1
-fi
-
-if ! id "$SERVER_USER" &>/dev/null; then
-    log_error "L'utilisateur $SERVER_USER n'existe pas"
-    exit 1
-fi
-
-# Affichage de l'utilisateur utilisé
-log_message "Utilisation de l'utilisateur : $SERVER_USER"
 
 # =====================================================
 # Mise à jour du système
@@ -224,7 +233,8 @@ ufw --force enable
 # Configuration de SSH
 # Cette section :
 # 1. Sauvegarde la configuration existante
-# 2. Vérifie que la configuration est valide
+# 2. Configure SSH de manière sécurisée
+# 3. Vérifie que la configuration est valide
 # =====================================================
 log_message "Configuration de SSH..."
 
@@ -237,38 +247,58 @@ else
     exit 1
 fi
 
-# Vérification de la configuration SSH actuelle
-log_message "Vérification de la configuration SSH actuelle..."
+# Configuration minimale et sécurisée de SSH
+cat > /etc/ssh/sshd_config << EOF
+# Configuration de base
+Port 22
+Protocol 2
+HostKey /etc/ssh/ssh_host_rsa_key
+HostKey /etc/ssh/ssh_host_ecdsa_key
+HostKey /etc/ssh/ssh_host_ed25519_key
+
+# Authentification
+PermitRootLogin no
+PubkeyAuthentication yes
+PasswordAuthentication no
+ChallengeResponseAuthentication no
+UsePAM yes
+
+# Sécurité
+X11Forwarding no
+MaxAuthTries 3
+MaxSessions 10
+ClientAliveInterval 600
+ClientAliveCountMax 3
+
+# Logs
+SyslogFacility AUTH
+LogLevel INFO
+
+# Utilisateurs autorisés
+AllowUsers $SERVER_USER
+
+# Configuration pour SCP/SFTP
+Subsystem sftp /usr/lib/openssh/sftp-server
+EOF
+
+# Vérification de la configuration
 if ! sshd -t; then
-    log_error "La configuration SSH actuelle est invalide"
+    log_error "La configuration SSH est invalide"
     log_warning "Restauration de la configuration d'origine..."
     cp /etc/ssh/sshd_config.backup.$(date +%Y%m%d) /etc/ssh/sshd_config
     exit 1
 fi
 
-# Vérification que l'utilisateur actuel a accès SSH
-current_user=$(whoami)
-if ! grep -q "AllowUsers.*$current_user" /etc/ssh/sshd_config; then
-    log_warning "L'utilisateur $current_user n'est pas dans la liste AllowUsers"
-    log_warning "Ajout de l'utilisateur à la configuration SSH..."
-    if grep -q "^AllowUsers" /etc/ssh/sshd_config; then
-        # Ajouter l'utilisateur à la liste existante
-        sed -i "s/^AllowUsers.*/& $current_user/" /etc/ssh/sshd_config
-    else
-        # Créer une nouvelle ligne AllowUsers
-        echo "AllowUsers $current_user" >> /etc/ssh/sshd_config
-    fi
+log_message "La configuration SSH est valide"
 
-    # Vérification de la nouvelle configuration
-    if ! sshd -t; then
-        log_error "La nouvelle configuration SSH est invalide"
-        log_warning "Restauration de la configuration d'origine..."
-        cp /etc/ssh/sshd_config.backup.$(date +%Y%m%d) /etc/ssh/sshd_config
-        exit 1
-    fi
+# Redémarrage de SSH avec vérification
+if ! systemctl restart ssh; then
+    log_error "Échec du redémarrage du service SSH"
+    systemctl status ssh
+    exit 1
 fi
 
-log_message "La configuration SSH est valide"
+log_message "Service SSH redémarré avec succès"
 
 # =====================================================
 # Création de la nouvelle structure de répertoires
@@ -338,13 +368,6 @@ EOF
 # 2. Active leur démarrage automatique
 # =====================================================
 log_message "Redémarrage des services..."
-
-# Redémarrage de SSH avec vérification
-if ! systemctl restart ssh; then
-    log_error "Échec du redémarrage du service SSH. Vérification de la configuration..."
-    systemctl status ssh
-    exit 1
-fi
 
 systemctl restart fail2ban
 systemctl enable fail2ban
