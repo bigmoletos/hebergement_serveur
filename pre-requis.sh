@@ -4,20 +4,40 @@
 # Script d'installation des prérequis pour le serveur
 # Ce script configure l'environnement de base nécessaire
 # pour le déploiement de notre architecture microservices
+# conteneurisée avec Docker.
+#
+# Objectifs :
+# 1. Mise à jour du système
+# 2. Installation des outils essentiels
+# 3. Installation et configuration de Docker
+# 4. Configuration de la sécurité (pare-feu, SSH, Fail2Ban)
+# 5. Création de la structure de dossiers pour les services
 # =====================================================
 
 # Auteur: Franck DESMEDT
-# Date: $(date +%Y-%m-%d)
+# Date: 2025-04-11
+# Version: 1.0.0
+#
+# Historique des versions :
+# 1.0.0 (2025-04-11) - Version initiale
+#   - Mise en place de la structure de base
+#   - Installation des prérequis essentiels
+#   - Configuration de la sécurité
+#   - Création de l'arborescence des dossiers
+# =====================================================
 
 # =====================================================
 # Configuration des couleurs pour les messages
 # Ces couleurs permettent de mieux distinguer les types
-# de messages dans la console
+# de messages dans la console :
+# - Vert : Informations
+# - Rouge : Erreurs
+# - Jaune : Avertissements
 # =====================================================
-RED='\033[0;31m'    # Pour les messages d'erreur
-GREEN='\033[0;32m'  # Pour les messages d'information
-YELLOW='\033[1;33m' # Pour les messages d'avertissement
-NC='\033[0m'        # Pour réinitialiser la couleur
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+NC='\033[0m'
 
 # =====================================================
 # Fonctions d'affichage des messages
@@ -50,14 +70,64 @@ fi
 # =====================================================
 # Chargement des variables d'environnement
 # Ces variables sont définies dans le fichier .env
-# et sont nécessaires pour la configuration
+# et sont nécessaires pour la configuration.
+# Si le fichier n'existe pas, on utilise des valeurs
+# par défaut pour permettre l'installation initiale.
 # =====================================================
-if [ -f .env ]; then
-    source .env
-else
-    log_error "Le fichier .env n'existe pas. Veuillez le créer avec les configurations nécessaires."
+load_env() {
+    local env_file=".env"
+    if [ -f "$env_file" ]; then
+        log_message "Chargement du fichier $env_file..."
+        # Lecture ligne par ligne du fichier .env
+        while IFS= read -r line; do
+            # Ignorer les lignes vides et les commentaires
+            [[ -z "$line" || "$line" =~ ^# ]] && continue
+
+            # Extraire la clé et la valeur (tout avant le premier #)
+            key=$(echo "$line" | cut -d '=' -f 1 | tr -d ' ' | tr -d '"' | tr -d "'")
+
+            # Pour les mots de passe, préserver les guillemets
+            if [[ "$key" == *"PASSWORD"* || "$key" == *"SECRET"* ]]; then
+                value=$(echo "$line" | cut -d '=' -f 2- | cut -d '#' -f 1 | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+            else
+                value=$(echo "$line" | cut -d '=' -f 2- | cut -d '#' -f 1 | tr -d ' ' | tr -d '"' | tr -d "'")
+            fi
+
+            # Vérifier que la ligne contient bien une clé et une valeur
+            if [[ -n "$key" && -n "$value" ]]; then
+                # Exporter la variable
+                export "$key=$value"
+                log_message "Variable chargée : $key=$value"
+            fi
+        done < "$env_file"
+    else
+        log_warning "Le fichier $env_file n'existe pas. Utilisation des valeurs par défaut."
+    fi
+}
+
+# Chargement des variables d'environnement
+load_env
+
+# Valeurs par défaut si non définies
+if [ -z "$SERVER_USER" ]; then
+    log_warning "SERVER_USER non défini dans .env, utilisation de l'utilisateur courant"
+    SERVER_USER=$(whoami)
+fi
+
+# Vérification et nettoyage du nom d'utilisateur
+SERVER_USER=$(echo "$SERVER_USER" | tr -d '#' | tr -d ' ' | tr -d '"' | tr -d "'" | tr -d '#' | tr -d ':' | tr -d ';' | tr -d '|' | tr -d '&' | tr -d '*' | tr -d '+' | tr -d '-' | tr -d '/' | tr -d '\\')
+if [ -z "$SERVER_USER" ]; then
+    log_error "Le nom d'utilisateur est vide après nettoyage"
     exit 1
 fi
+
+if ! id "$SERVER_USER" &>/dev/null; then
+    log_error "L'utilisateur $SERVER_USER n'existe pas"
+    exit 1
+fi
+
+# Affichage de l'utilisateur utilisé
+log_message "Utilisation de l'utilisateur : $SERVER_USER"
 
 # =====================================================
 # Mise à jour du système
@@ -65,43 +135,74 @@ fi
 # avant de procéder à l'installation
 # =====================================================
 log_message "Mise à jour du système..."
+
+# Nettoyage des anciens dépôts avant la mise à jour
+log_message "Nettoyage des anciens dépôts..."
+rm -f /etc/apt/sources.list.d/jenkins.list
+rm -f /etc/apt/sources.list.d/kubernetes.list
+rm -f /usr/share/keyrings/jenkins-keyring.gpg
+rm -f /usr/share/keyrings/kubernetes-archive-keyring.gpg
+
+# Mise à jour du système
 apt update && apt upgrade -y
 
 # =====================================================
 # Installation des paquets essentiels
 # Ces paquets sont nécessaires pour :
-# - sudo : gestion des privilèges
 # - curl/wget : téléchargement de fichiers
 # - git : gestion de version
-# - vim/nano : éditeurs de texte
-# - python3 : langage de programmation
+# - vim : éditeur de texte
+# - htop : monitoring système
 # - net-tools : outils réseau
 # - ufw : pare-feu
-# - openssh-server : serveur SSH
 # - fail2ban : protection contre les attaques
-# - htop : monitoring système
-# - dnsutils : outils DNS
-# - docker.io : conteneurisation
-# - docker-compose : orchestration de conteneurs
+# - ca-certificates : certificats SSL
+# - gnupg : gestion des clés GPG
+# - lsb-release : informations sur la distribution
 # =====================================================
 log_message "Installation des paquets essentiels..."
 apt install -y \
-    sudo \
     curl \
     wget \
     git \
     vim \
-    nano \
-    python3 \
-    python3-pip \
+    htop \
     net-tools \
     ufw \
-    openssh-server \
     fail2ban \
-    htop \
-    dnsutils \
-    docker.io \
-    docker-compose
+    ca-certificates \
+    gnupg \
+    lsb-release
+
+# =====================================================
+# Installation de Docker et Docker Compose
+# Cette section :
+# 1. Supprime les anciennes clés Docker si elles existent
+# 2. Ajoute la clé GPG officielle de Docker
+# 3. Configure le dépôt Docker
+# 4. Installe Docker et Docker Compose
+# =====================================================
+log_message "Installation de Docker..."
+
+# Nettoyage des anciens dépôts
+log_message "Nettoyage des anciens dépôts..."
+rm -f /etc/apt/sources.list.d/jenkins.list
+rm -f /etc/apt/sources.list.d/kubernetes.list
+rm -f /usr/share/keyrings/jenkins-keyring.gpg
+rm -f /usr/share/keyrings/kubernetes-archive-keyring.gpg
+
+# Suppression des anciennes clés Docker si elles existent
+rm -f /usr/share/keyrings/docker-archive-keyring.gpg
+
+curl -fsSL https://download.docker.com/linux/ubuntu/gpg | gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg
+
+echo \
+  "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/ubuntu \
+  $(lsb_release -cs) stable" | tee /etc/apt/sources.list.d/docker.list > /dev/null
+
+# Mise à jour des dépôts et installation de Docker
+apt update
+apt install -y docker-ce docker-ce-cli containerd.io docker-compose-plugin
 
 # =====================================================
 # Configuration du pare-feu
@@ -109,6 +210,7 @@ apt install -y \
 # - Bloque toutes les connexions entrantes par défaut
 # - Autorise toutes les connexions sortantes
 # - Ouvre les ports nécessaires (SSH, HTTP, HTTPS)
+# - Active le pare-feu
 # =====================================================
 log_message "Configuration du pare-feu..."
 ufw default deny incoming
@@ -121,66 +223,97 @@ ufw --force enable
 # =====================================================
 # Configuration de SSH
 # Cette section :
-# - Sauvegarde la configuration existante
-# - Configure SSH pour une sécurité maximale
-# - Désactive l'authentification par mot de passe
-# - Limite les tentatives de connexion
+# 1. Sauvegarde la configuration existante
+# 2. Vérifie que la configuration est valide
 # =====================================================
 log_message "Configuration de SSH..."
-mkdir -p /etc/ssh/backup
-cp /etc/ssh/sshd_config /etc/ssh/backup/sshd_config.$(date +%Y%m%d)
 
-# Configuration sécurisée de SSH
-cat > /etc/ssh/sshd_config << EOF
-# Configuration de base
-Port 22
-Protocol 2
-HostKey /etc/ssh/ssh_host_rsa_key
-HostKey /etc/ssh/ssh_host_ecdsa_key
-HostKey /etc/ssh/ssh_host_ed25519_key
+# Sauvegarde de la configuration existante
+if [ -f /etc/ssh/sshd_config ]; then
+    cp /etc/ssh/sshd_config /etc/ssh/sshd_config.backup.$(date +%Y%m%d)
+    log_message "Configuration SSH sauvegardée"
+else
+    log_error "Le fichier de configuration SSH n'existe pas"
+    exit 1
+fi
 
-# Authentification
-PermitRootLogin no
-PubkeyAuthentication yes
-PasswordAuthentication no
-ChallengeResponseAuthentication no
-UsePAM yes
+# Vérification de la configuration SSH actuelle
+log_message "Vérification de la configuration SSH actuelle..."
+if ! sshd -t; then
+    log_error "La configuration SSH actuelle est invalide"
+    log_warning "Restauration de la configuration d'origine..."
+    cp /etc/ssh/sshd_config.backup.$(date +%Y%m%d) /etc/ssh/sshd_config
+    exit 1
+fi
 
-# Sécurité
-X11Forwarding no
-MaxAuthTries 3
-MaxSessions 3
-ClientAliveInterval 300
-ClientAliveCountMax 2
+# Vérification que l'utilisateur actuel a accès SSH
+current_user=$(whoami)
+if ! grep -q "AllowUsers.*$current_user" /etc/ssh/sshd_config; then
+    log_warning "L'utilisateur $current_user n'est pas dans la liste AllowUsers"
+    log_warning "Ajout de l'utilisateur à la configuration SSH..."
+    if grep -q "^AllowUsers" /etc/ssh/sshd_config; then
+        # Ajouter l'utilisateur à la liste existante
+        sed -i "s/^AllowUsers.*/& $current_user/" /etc/ssh/sshd_config
+    else
+        # Créer une nouvelle ligne AllowUsers
+        echo "AllowUsers $current_user" >> /etc/ssh/sshd_config
+    fi
 
-# Logging
-SyslogFacility AUTH
-LogLevel INFO
+    # Vérification de la nouvelle configuration
+    if ! sshd -t; then
+        log_error "La nouvelle configuration SSH est invalide"
+        log_warning "Restauration de la configuration d'origine..."
+        cp /etc/ssh/sshd_config.backup.$(date +%Y%m%d) /etc/ssh/sshd_config
+        exit 1
+    fi
+fi
 
-# Restriction d'accès
-AllowUsers ${SERVER_USER}
-EOF
+log_message "La configuration SSH est valide"
 
 # =====================================================
-# Configuration du répertoire SSH
+# Création de la nouvelle structure de répertoires
+# Cette structure est optimisée pour une architecture
+# conteneurisée avec :
+# - config/ : configurations des services
+# - data/ : données persistantes des conteneurs
+# - logs/ : logs centralisés
+# - certs/ : certificats SSL (gérés par Traefik)
+# - scripts/ : scripts de maintenance
+# =====================================================
+log_message "Création de la structure de répertoires..."
+mkdir -p /hebergement_serveur/{config/{traefik,docker-compose,env},data/{portainer,api,monitoring},logs,certs,scripts}
+
+# =====================================================
+# Configuration des permissions
 # Cette section :
-# - Crée le répertoire .ssh pour l'utilisateur
-# - Configure les permissions appropriées
-# - Prépare le fichier authorized_keys pour la clé
+# 1. Définit le propriétaire des répertoires
+# 2. Configure les permissions de base
+# 3. Restreint l'accès aux dossiers sensibles
 # =====================================================
-log_message "Configuration du répertoire SSH pour l'utilisateur..."
-mkdir -p /home/${SERVER_USER}/.ssh
-chmod 700 /home/${SERVER_USER}/.ssh
-touch /home/${SERVER_USER}/.ssh/authorized_keys
-chmod 600 /home/${SERVER_USER}/.ssh/authorized_keys
-chown -R ${SERVER_USER}:${SERVER_USER} /home/${SERVER_USER}/.ssh
+log_message "Configuration des permissions..."
+
+# Vérification que l'utilisateur existe avant d'exécuter chown
+if ! id "$SERVER_USER" &>/dev/null; then
+    log_error "L'utilisateur $SERVER_USER n'existe pas, impossible de configurer les permissions"
+    exit 1
+fi
+
+# Configuration des permissions avec vérification
+if ! chown -R "${SERVER_USER}:${SERVER_USER}" /hebergement_serveur; then
+    log_error "Échec de la configuration des permissions pour $SERVER_USER"
+    exit 1
+fi
+
+chmod -R 755 /hebergement_serveur
+chmod 700 /hebergement_serveur/config/env
+chmod 700 /hebergement_serveur/certs
 
 # =====================================================
 # Configuration de Fail2Ban
 # Cette section :
-# - Configure la protection contre les attaques par force brute
-# - Définit les délais de bannissement
-# - Active la protection pour SSH
+# 1. Configure la protection contre les attaques
+# 2. Définit les délais de bannissement
+# 3. Active la protection pour SSH
 # =====================================================
 log_message "Configuration de Fail2Ban..."
 cat > /etc/fail2ban/jail.local << EOF
@@ -199,82 +332,45 @@ bantime = 1h
 EOF
 
 # =====================================================
-# Création de la structure de répertoires
-# Cette section crée l'arborescence nécessaire pour :
-# - Les certificats SSL (ssl/)
-# - Les clés SSH (ssh/)
-# - Les logs des services (logs/)
-# - Les configurations (config/)
-# - Les services déployés (services/)
-# - Les données persistantes (data/)
-# =====================================================
-log_message "Création des répertoires pour l'architecture microservices..."
-mkdir -p /hebergement_serveur/{ssl,ssh,logs,config}
-mkdir -p /hebergement_serveur/services/{jenkins,docker,api,monitoring}
-mkdir -p /hebergement_serveur/data/{jenkins,docker,api,monitoring}
-
-# =====================================================
-# Configuration des permissions
-# Cette section :
-# - Définit les propriétaires des répertoires
-# - Configure les permissions de sécurité
-# - Crée les fichiers .gitkeep pour Git
-# =====================================================
-log_message "Configuration des permissions..."
-chown -R ${SERVER_USER}:${SERVER_USER} /hebergement_serveur
-chmod -R 755 /hebergement_serveur
-chmod 700 /hebergement_serveur/ssh
-chmod 600 /hebergement_serveur/ssl/* 2>/dev/null || true
-
-# Création des fichiers .gitkeep pour maintenir la structure
-touch /hebergement_serveur/ssl/.gitkeep
-touch /hebergement_serveur/ssh/.gitkeep
-
-# =====================================================
 # Redémarrage des services
 # Cette section :
-# - Redémarre les services configurés
-# - Active leur démarrage automatique
+# 1. Redémarre les services configurés
+# 2. Active leur démarrage automatique
 # =====================================================
 log_message "Redémarrage des services..."
-systemctl restart sshd
+
+# Redémarrage de SSH avec vérification
+if ! systemctl restart ssh; then
+    log_error "Échec du redémarrage du service SSH. Vérification de la configuration..."
+    systemctl status ssh
+    exit 1
+fi
+
 systemctl restart fail2ban
-systemctl enable sshd
 systemctl enable fail2ban
 
 # =====================================================
 # Message de fin et instructions
 # Cette section :
-# - Résume les étapes à suivre
-# - Fournit les commandes nécessaires
-# - Affiche la structure des répertoires
+# 1. Affiche la structure des répertoires créée
+# 2. Donne les prochaines étapes à suivre
 # =====================================================
 log_message "Installation des prérequis terminée!"
-log_warning "N'oubliez pas de :"
-log_warning "1. Copier votre clé publique airquality_server_key dans /home/${SERVER_USER}/.ssh/authorized_keys"
-log_warning "2. Tester la connexion SSH avec airquality_server_key"
-log_warning "3. Vérifier que la connexion par mot de passe est bien désactivée"
-log_warning "4. Configurer le fichier .env avec vos paramètres"
-
-echo -e "\nPour copier votre clé publique :"
-echo "scp ~/.ssh/airquality_server_key.pub ${SERVER_USER}@${IP_ADDRESS}:/home/${SERVER_USER}/.ssh/authorized_keys"
-
-echo -e "\nPour tester la connexion :"
-echo "ssh -i ~/.ssh/airquality_server_key ${SERVER_USER}@${IP_ADDRESS}"
-
-echo -e "\nStructure des répertoires créée :"
+log_warning "Structure des répertoires créée :"
 echo "/hebergement_serveur/"
-echo "├── ssl/                # Certificats SSL"
-echo "├── ssh/               # Clés SSH"
-echo "├── logs/              # Logs des services"
-echo "├── config/            # Fichiers de configuration"
-echo "├── services/          # Services déployés"
-echo "│   ├── jenkins/       # Configuration Jenkins"
-echo "│   ├── docker/        # Configuration Docker"
-echo "│   ├── api/           # Configuration API"
-echo "│   └── monitoring/    # Configuration monitoring"
-echo "└── data/              # Données persistantes"
-echo "    ├── jenkins/       # Données Jenkins"
-echo "    ├── docker/        # Données Docker"
-echo "    ├── api/           # Données API"
-echo "    └── monitoring/    # Données monitoring"
+echo "├── config/              # Configurations"
+echo "│   ├── traefik/        # Configuration de Traefik"
+echo "│   ├── docker-compose/ # Fichiers docker-compose"
+echo "│   └── env/           # Variables d'environnement"
+echo "├── data/               # Données persistantes"
+echo "│   ├── portainer/"
+echo "│   ├── api/"
+echo "│   └── monitoring/"
+echo "├── logs/               # Logs centralisés"
+echo "├── certs/              # Certificats SSL"
+echo "└── scripts/            # Scripts de maintenance"
+
+log_warning "Prochaines étapes :"
+log_warning "1. Vérifier la configuration SSH"
+log_warning "2. Configurer Traefik comme reverse proxy"
+log_warning "3. Déployer les services via Docker Compose"
