@@ -42,12 +42,12 @@ chmod 700 /etc/ovh
 # Configuration des identifiants OVH
 cat > /etc/ovh/ovh.conf << EOF
 [default]
-endpoint=ovh-eu
+endpoint=https://eu.api.ovh.com/v1
 
 [ovh-eu]
-application_key=6f1ea4004ed10b98
-application_secret=321ed8151e9337d63d90d0e961a80dbb
-consumer_key=0ca8c02e03f8a26b923b18b485eaf23f
+application_key=${OVH_APPLICATION_KEY}
+application_secret=${OVH_APPLICATION_SECRET}
+consumer_key=${OVH_CONSUMER_KEY}
 EOF
 
 # Création du script de mise à jour DNS
@@ -65,26 +65,21 @@ CURRENT_IP=$(curl -s ifconfig.me)
 
 # Fonction pour mettre à jour un enregistrement DNS
 update_dns_record() {
-    local domain=$1
+    local zone=$1
     local subdomain=$2
-    local record_type=$3
-
-    # Récupération de l'ID de la zone
-    zone_id=$(ovh --endpoint=ovh-eu dns-zone-list | grep $domain | awk '{print $1}')
+    local record_id=$3
 
     # Mise à jour de l'enregistrement
-    ovh --endpoint=ovh-eu dns-zone-record-update $zone_id \
-        --subDomain=$subdomain \
-        --target=$CURRENT_IP \
-        --ttl=60
+    curl -X PUT "https://eu.api.ovh.com/v1/domain/zone/${zone}/record/${record_id}" \
+        -H "Content-Type: application/json" \
+        -H "X-Ovh-Application: ${OVH_APPLICATION_KEY}" \
+        -H "X-Ovh-Consumer: ${OVH_CONSUMER_KEY}" \
+        -H "X-Ovh-Timestamp: $(date +%s)" \
+        -d "{\"target\":\"${CURRENT_IP}\",\"ttl\":0}"
 }
 
-# Mise à jour des domaines
-update_dns_record "iaproject.fr" "airquality" "A"
-update_dns_record "iaproject.fr" "www.airquality" "A"
-update_dns_record "iaproject.fr" "jenkins.airquality" "A"
-update_dns_record "iaproject.fr" "docker.airquality" "A"
-update_dns_record "iaproject.fr" "api.airquality" "A"
+# Mise à jour des domaines avec les IDs
+update_dns_record "${OVH_DNS_ZONE}" "${OVH_DNS_SUBDOMAIN}" "${OVH_DNS_RECORD_ID}"
 
 # Log de la mise à jour
 echo "$(date) - DNS mis à jour avec IP: $CURRENT_IP" >> /var/log/ovh_dns_update.log
