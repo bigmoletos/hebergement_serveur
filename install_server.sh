@@ -146,20 +146,41 @@ daemon=300
 syslog=yes
 pid=/var/run/ddclient.pid
 ssl=yes
-use=web, web=checkip.dyndns.org/, web-skip='IP Address'
+use=web, web=checkip.dyndns.com/, web-skip='IP Address'
 protocol=dyndns2
-server=www.ovh.com
-login=$DYNDNS_USERNAME
-password=$DYNDNS_PASSWORD
-$DYNDNS_DOMAIN
+server=ovh.com
+login=${DYNDNS_USERNAME}
+password='${DYNDNS_PASSWORD}'
+zone=${DYNDNS_DOMAIN}
+${DYNDNS_DOMAIN}
 EOF
 
-# Redémarrage de ddclient
+# Redémarrer ddclient
 systemctl restart ddclient
+systemctl enable ddclient
 
 # Vérification de la configuration DNS
 log_message "Vérification de la configuration DNS..."
-nslookup $DYNDNS_DOMAIN
+IP_PUBLIC=$(curl -s ifconfig.me)
+log_message "IP publique actuelle : ${IP_PUBLIC}"
+
+# Vérification des enregistrements DNS
+for domain in ${DYNDNS_DOMAIN} traefik.${DYNDNS_DOMAIN} portainer.${DYNDNS_DOMAIN}; do
+    log_message "Vérification de ${domain}..."
+    dig +short ${domain} || log_error "Impossible de résoudre ${domain}"
+done
+
+# Vérification du service ddclient
+log_message "Vérification du service ddclient..."
+systemctl status ddclient
+
+# Test de mise à jour DNS
+log_message "Test de mise à jour DNS..."
+ddclient -daemon=0 -debug -verbose -noquiet
+
+# Vérification des logs
+log_message "Vérification des logs ddclient..."
+journalctl -u ddclient -n 50
 
 # =====================================================
 # Configuration de Traefik comme Reverse Proxy
@@ -172,17 +193,10 @@ mkdir -p /hebergement_serveur/certs
 
 # Configuration de base de Traefik
 cat > /hebergement_serveur/config/traefik/traefik.yml << EOF
-# Configuration globale
 global:
-  checkNewVersion: true
+  checkNewVersion: false
   sendAnonymousUsage: false
 
-# Configuration de l'API et du Dashboard
-api:
-  dashboard: true
-  insecure: true
-
-# Configuration des entrées
 entryPoints:
   web:
     address: ":80"
@@ -194,38 +208,61 @@ entryPoints:
   websecure:
     address: ":443"
 
-# Configuration des certificats
-certificatesResolvers:
-  myresolver:
-    acme:
-      email: $NGINX_SSL_EMAIL
-      storage: /hebergement_serveur/certs/acme.json
-      httpChallenge:
-        entryPoint: web
-
-# Configuration des providers
 providers:
   docker:
     endpoint: "unix:///var/run/docker.sock"
     exposedByDefault: false
   file:
-    directory: /hebergement_serveur/config/traefik
+    directory: "/etc/traefik/dynamic"
     watch: true
+
+certificatesResolvers:
+  letsencrypt:
+    acme:
+      email: $NGINX_SSL_EMAIL
+      storage: /etc/traefik/acme.json
+      httpChallenge:
+        entryPoint: web
+
+api:
+  dashboard: true
+  insecure: false
+
+accessLog: {}
 EOF
 
-# Configuration des middlewares
-cat > /hebergement_serveur/config/traefik/middlewares.yml << EOF
+# Configuration dynamique de Traefik
+mkdir -p /hebergement_serveur/config/traefik/dynamic
+cat > /hebergement_serveur/config/traefik/dynamic/config.yml << EOF
 http:
+  routers:
+    traefik-dashboard:
+      rule: "Host(\`traefik.$DYNDNS_DOMAIN\`)"
+      service: api@internal
+      tls:
+        certResolver: letsencrypt
+      middlewares:
+        - auth
+
+    portainer:
+      rule: "Host(\`portainer.$DYNDNS_DOMAIN\`)"
+      service: portainer
+      tls:
+        certResolver: letsencrypt
+      middlewares:
+        - auth
+
+  services:
+    portainer:
+      loadBalancer:
+        servers:
+          - url: "http://portainer:9000"
+
   middlewares:
-    secure-headers:
-      headers:
-        browserXssFilter: true
-        contentTypeNosniff: true
-        frameDeny: true
-        sslRedirect: true
-        stsIncludeSubdomains: true
-        stsPreload: true
-        stsSeconds: 31536000
+    auth:
+      basicAuth:
+        users:
+          - "admin:\`openssl passwd -apr1 \$TRAEFIK_PASSWORD\`"
 EOF
 
 # Création du fichier acme.json
@@ -322,3 +359,38 @@ log_warning "4. Configurer vos règles de pare-feu selon vos besoins"
 
 echo "Pour accéder à Traefik : https://traefik.$DYNDNS_DOMAIN"
 echo "Pour accéder à Portainer : https://portainer.$DYNDNS_DOMAIN"
+
+# =====================================================
+# Fonction pour tester la connexion à l'API OVH
+# =====================================================
+test_ovh_api() {
+    log_message "Test de connexion à l'API OVH..."
+
+    # Vérification des variables d'API
+    if [ -z "$OVH_APPLICATION_KEY" ] || [ -z "$OVH_APPLICATION_SECRET" ] || [ -z "$OVH_CONSUMER_KEY" ]; then
+        log_error "Variables d'API OVH manquantes"
+        return 1
+    fi
+
+    # Test de connexion à l'API
+    response=$(curl -s -X GET \
+        -H "X-Ovh-Application: $OVH_APPLICATION_KEY" \
+        -H "X-Ovh-Timestamp: $(date +%s)" \
+        -H "X-Ovh-Signature: $(echo -n "$OVH_APPLICATION_SECRET+$OVH_CONSUMER_KEY+GET+/domain/zone/$DYNDNS_DOMAIN/record+$(date +%s)" | sha1sum | cut -d' ' -f1)" \
+        -H "X-Ovh-Consumer: $OVH_CONSUMER_KEY" \
+        "https://api.ovh.com/1.0/domain/zone/$DYNDNS_DOMAIN/record")
+
+    if [ $? -eq 0 ]; then
+        log_message "Connexion à l'API OVH réussie"
+        log_message "Réponse de l'API : $response"
+        return 0
+    else
+        log_error "Échec de la connexion à l'API OVH"
+        return 1
+    fi
+}
+
+# =====================================================
+# Test de l'API OVH
+# =====================================================
+test_ovh_api

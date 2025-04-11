@@ -252,7 +252,40 @@ La clé SSH doit être dans le répertoire standard `~/.ssh/` sur votre machine 
 
 ### 4.1 Exécution du script d'installation
 
-1. Une fois les prérequis installés, lancez le script d'installation :
+1. **Nettoyage avant installation ou re-installation initiale ATTENTION ** (si nécessaire) :
+```bash
+# Ajouter l'utilisateur au groupe docker (si ce n'est pas déjà fait)
+sudo usermod -aG docker user
+
+# Arrêter et supprimer les conteneurs existants
+cd /hebergement_serveur/config/docker-compose
+sudo docker compose down
+
+# Nettoyer les configurations existantes
+sudo rm -rf /hebergement_serveur/config/traefik/*
+sudo rm -rf /hebergement_serveur/certs/*
+
+# Réinitialiser la configuration de ddclient
+sudo rm /etc/ddclient.conf
+
+# Arrêter et redémarrer les services
+sudo systemctl stop ddclient
+sudo systemctl stop docker
+sudo systemctl start docker
+
+# en 1 ligne
+cd /hebergement_serveur/config/docker-compose && sudo docker compose down && cd .. && cd .. &&   sudo rm -rf /hebergement_serveur/config/traefik/* && sudo rm -rf /hebergement_serveur/certs/* && sudo rm /etc/ddclient.conf  && sudo systemctl stop ddclient  && sudo systemctl stop docker && sudo systemctl start docker
+
+# Vérifier les permissions
+sudo chown -R user:user /hebergement_serveur
+sudo chmod -R 755 /hebergement_serveur
+
+# Note : Pour que les changements de groupe prennent effet, vous devez :
+# 1. Soit vous déconnecter et vous reconnecter au serveur
+# 2. Soit utiliser sudo pour toutes les commandes docker
+```
+
+2. **Installation** :
 ```bash
 cd /hebergement_serveur
 sudo chmod +x *.sh && sudo ./install_server.sh
