@@ -1,0 +1,97 @@
+jenkins:
+  systemMessage: "Jenkins as Code - AirQuality Project"
+  numExecutors: 2
+  mode: NORMAL
+  scmCheckoutRetryCount: 3
+  labelString: "master"
+  projectNamingStrategy: "standard"
+  securityRealm:
+    local:
+      allowsSignup: false
+      users:
+        - id: "admin"
+          password: "${JENKINS_ADMIN_PASSWORD}"
+  authorizationStrategy:
+    globalMatrix:
+      permissions:
+        - "Overall/Administer:admin"
+        - "Overall/Read:authenticated"
+        - "Job/Build:authenticated"
+        - "Job/Cancel:authenticated"
+        - "Job/Configure:admin"
+        - "Job/Create:admin"
+        - "Job/Delete:admin"
+        - "Job/Discover:authenticated"
+        - "Job/Read:authenticated"
+        - "Job/Workspace:authenticated"
+        - "Run/Delete:admin"
+        - "Run/Replay:admin"
+        - "Run/Update:admin"
+        - "SCM/Tag:admin"
+        - "View/Configure:admin"
+        - "View/Create:admin"
+        - "View/Delete:admin"
+        - "View/Read:authenticated"
+
+unclassified:
+  location:
+    url: "https://jenkins.airquality.iaproject.fr"
+    adminAddress: "desmedt.franck@gmail.com"
+
+security:
+  apiToken:
+    creationOfLegacyTokenEnabled: false
+    tokenGenerationOnCreationEnabled: true
+    usageStatisticsEnabled: true
+
+credentials:
+  system:
+    domainCredentials:
+      - credentials:
+          - usernamePassword:
+              scope: GLOBAL
+              id: "docker-registry"
+              username: "${DOCKER_REGISTRY_USER}"
+              password: "${DOCKER_REGISTRY_PASSWORD}"
+              description: "Docker Registry Credentials"
+
+tool:
+  git:
+    installations:
+      - name: "Default"
+        home: "git"
+        properties:
+          - installSource:
+              installers:
+                - command:
+                    command: "/usr/bin/git"
+                    label: "Git"
+
+  dockerTool:
+    installations:
+      - name: "docker"
+        properties:
+          - installSource:
+              installers:
+                - command:
+                    command: "/usr/bin/docker"
+                    label: "Docker"
+
+jobs:
+  - script: >
+      pipelineJob('airquality-pipeline') {
+        definition {
+          cpsScm {
+            scm {
+              git {
+                remote {
+                  url('https://github.com/your-repo/airquality.git')
+                  credentials('github-credentials')
+                }
+                branch('main')
+              }
+            }
+            scriptPath('Jenkinsfile')
+          }
+        }
+      }

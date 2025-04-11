@@ -1,0 +1,59 @@
+# Configuration globale
+global:
+  checkNewVersion: true
+  sendAnonymousUsage: false
+
+# Configuration des entrées
+entryPoints:
+  web:
+    address: ":80"
+    http:
+      redirections:
+        entryPoint:
+          to: websecure
+          scheme: https
+  websecure:
+    address: ":443"
+
+# Configuration des certificats
+certificatesResolvers:
+  letsencrypt:
+    acme:
+      email: desmedt.franck@gmail.com
+      storage: /opt/traefik/acme.json
+      httpChallenge:
+        entryPoint: web
+
+# Configuration des providers
+providers:
+  docker:
+    endpoint: "unix:///var/run/docker.sock"
+    exposedByDefault: false
+    network: traefik-public
+  file:
+    directory: "/etc/traefik/dynamic"
+    watch: true
+
+# Configuration du dashboard
+api:
+  dashboard: true
+  insecure: false
+  debug: false
+
+# Configuration des middlewares
+http:
+  middlewares:
+    secure-headers:
+      headers:
+        browserXssFilter: true
+        contentTypeNosniff: true
+        frameDeny: true
+        sslRedirect: true
+        stsIncludeSubdomains: true
+        stsPreload: true
+        stsSeconds: 31536000
+
+# Configuration des logs
+log:
+  level: INFO
+  format: common

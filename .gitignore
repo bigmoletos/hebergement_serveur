@@ -1,0 +1,52 @@
+# Fichiers de configuration sensibles
+.env
+*.env
+.env.*
+
+# Fichiers de certificats
+*.pem
+*.key
+*.crt
+*.csr
+*.p12
+*.pfx
+
+# Fichiers de logs
+*.log
+logs/
+log/
+
+# Fichiers de données
+*.db
+*.sqlite
+*.sqlite3
+
+# Fichiers de cache
+.cache/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Fichiers système
+.DS_Store
+Thumbs.db
+
+# Fichiers IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Fichiers Docker
+docker-compose.override.yml
+
+# Fichiers de sauvegarde
+*.bak
+*.backup
+*.old
+
+# Fichiers de monitoring
+prometheus/data/
+grafana/data/
+loki/data/
