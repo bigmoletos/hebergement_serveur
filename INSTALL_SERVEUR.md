@@ -105,9 +105,6 @@ sudo systemctl restart sshd
 /ssl/
 /ssl/*
 !/ssl/.gitkeep
-/ssl2/
-/ssl2/*
-!/ssl2/.gitkeep
 
 # Fichiers sensibles
 .env
@@ -142,6 +139,37 @@ chmod 600 ssl/*.csr
    - Ne partagez jamais les clés privées
 
 ## 2. Connexion au serveur
+
+### 2.1 Sur Windows (PowerShell)
+
+1. Ouvrez un terminal PowerShell et naviguez vers le dossier contenant la clé :
+```bash
+cd C:\programmation\Projets_python\hebergement_serveur\ssh
+```
+
+2. Connectez-vous au serveur avec la clé :
+```bash
+ssh -i .\airquality_server_key user@192.168.1.134
+```
+
+### 2.2 Sur Linux/Mac
+
+```bash
+ssh -i airquality_server_key ${SERVER_USER}@${IP_ADDRESS}
+```
+
+### 2.3 Configuration simplifiée (optionnel)
+
+Pour simplifier la connexion, vous pouvez créer un fichier `config` dans `~/.ssh/` :
+
+```bash
+Host airquality
+    HostName ${IP_ADDRESS}
+    User ${SERVER_USER}
+    IdentityFile ~/.ssh/airquality_server_key
+```
+
+Puis vous pourrez vous connecter simplement avec :
 ```bash
 ssh airquality
 ```
