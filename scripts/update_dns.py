@@ -8,140 +8,88 @@ pour les sous-domaines configurés.
 
 import os
 import sys
-
-# Ajout du répertoire scripts au PYTHONPATH
-script_dir = os.path.dirname(os.path.abspath(__file__))
-sys.path.append(script_dir)
-
-import ovh
-from datetime import datetime
-from logger import setup_logger, mask_sensitive, check_required_vars, log_exception
+import logging
+import socket
+import requests
 
 # Configuration du logger
-logger = setup_logger('ovh_dns', '/var/log/ovh_dns.log')
+logger = logging.getLogger('ovh_dns')
+logger.setLevel(logging.INFO)
+
+# Création du handler pour les logs
+handler = logging.FileHandler('/var/log/ovh_dns.log')
+handler.setLevel(logging.INFO)
+
+# Format des logs
+formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
+handler.setFormatter(formatter)
+logger.addHandler(handler)
 
 
-def load_env_vars():
-    """Charge les variables d'environnement depuis le fichier .env"""
-    env_file = "/hebergement_serveur/.env"
-    env_vars = {}
-
+def get_public_ip():
     try:
-        with open(env_file, 'r') as f:
-            for line in f:
-                line = line.strip()
-                if line and not line.startswith('#'):
-                    key, value = line.split('=', 1)
-                    env_vars[key.strip()] = value.strip().strip("'")
+        # Utilisation de api.ipify.org pour obtenir l'IP publique
+        response = requests.get('https://api.ipify.org')
+        return response.text
     except Exception as e:
-        log_exception(logger, e, "Erreur lors du chargement du fichier .env")
-        sys.exit(1)
+        logger.error(
+            f"Erreur lors de la récupération de l'IP publique: {str(e)}")
+        return None
 
-    return env_vars
 
-
-def update_dns():
-    """Met à jour les enregistrements DNS"""
+def update_dns_record():
     try:
-        # Chargement des variables d'environnement
-        env_vars = load_env_vars()
-
-        # Vérification des variables requises
+        # Vérification des variables d'environnement requises
         required_vars = [
             'OVH_APPLICATION_KEY', 'OVH_APPLICATION_SECRET',
             'OVH_CONSUMER_KEY', 'OVH_DNS_ZONE', 'OVH_DNS_SUBDOMAIN',
             'OVH_DNS_RECORD_ID'
         ]
 
-        if not check_required_vars(required_vars, logger):
-            sys.exit(1)
+        missing_vars = [var for var in required_vars if not os.getenv(var)]
+        if missing_vars:
+            logger.error(
+                f"Variables d'environnement manquantes: {', '.join(missing_vars)}"
+            )
+            return False
 
         # Configuration du client OVH
         logger.info("Configuration du client OVH...")
         client = ovh.Client(
-            endpoint=env_vars.get('OVH_API_ENDPOINT', 'ovh-eu'),
-            application_key=env_vars['OVH_APPLICATION_KEY'],
-            application_secret=env_vars['OVH_APPLICATION_SECRET'],
-            consumer_key=env_vars['OVH_CONSUMER_KEY'])
+            endpoint='ovh-eu',
+            application_key=os.getenv('OVH_APPLICATION_KEY'),
+            application_secret=os.getenv('OVH_APPLICATION_SECRET'),
+            consumer_key=os.getenv('OVH_CONSUMER_KEY'))
         logger.info("Client OVH configuré avec succès")
 
-        # Récupération de l'adresse IP actuelle
-        ip_address = env_vars.get('IP_ADDRESS')
-        if not ip_address:
-            logger.error("Adresse IP non définie")
-            sys.exit(1)
+        # Récupération de l'IP publique
+        logger.info("Récupération de l'IP publique...")
+        new_ip = get_public_ip()
+        if not new_ip:
+            logger.error("Impossible de récupérer l'IP publique")
+            return False
 
-        logger.info(f"Adresse IP à utiliser : {mask_sensitive(ip_address)}")
+        logger.info(f"Nouvelle IP publique: {new_ip[:5]}***")
 
-        # Mise à jour de l'enregistrement DNS principal
-        try:
-            logger.info("Mise à jour de l'enregistrement DNS principal...")
-            client.put(
-                f'/domain/zone/{env_vars["OVH_DNS_ZONE"]}/record/{env_vars["OVH_DNS_RECORD_ID"]}',
-                subDomain=env_vars['OVH_DNS_SUBDOMAIN'],
-                target=ip_address,
-                ttl=60)
-            logger.info(
-                f"Mise à jour DNS réussie pour {env_vars['OVH_DNS_SUBDOMAIN']}.{env_vars['OVH_DNS_ZONE']}"
-            )
-        except Exception as e:
-            log_exception(logger, e, "Erreur lors de la mise à jour DNS")
-            sys.exit(1)
+        # Mise à jour de l'enregistrement DNS
+        logger.info("Mise à jour de l'enregistrement DNS...")
+        result = client.put(
+            f'/domain/zone/{os.getenv("OVH_DNS_ZONE")}/record/{os.getenv("OVH_DNS_RECORD_ID")}',
+            subDomain=os.getenv('OVH_DNS_SUBDOMAIN'),
+            target=new_ip,
+            ttl=60)
 
-        # Mise à jour des sous-domaines supplémentaires
-        additional_subdomains = env_vars.get('DYNDNS_ADDITIONAL_SUBDOMAINS',
-                                             '').split(',')
-        for subdomain in additional_subdomains:
-            subdomain = subdomain.strip()
-            if subdomain:
-                try:
-                    logger.info(f"Traitement du sous-domaine : {subdomain}")
-                    # Recherche de l'ID de l'enregistrement pour le sous-domaine
-                    records = client.get(
-                        f'/domain/zone/{env_vars["OVH_DNS_ZONE"]}/record',
-                        fieldType='A',
-                        subDomain=subdomain)
-
-                    if records:
-                        record_id = records[0]
-                        client.put(
-                            f'/domain/zone/{env_vars["OVH_DNS_ZONE"]}/record/{record_id}',
-                            subDomain=subdomain,
-                            target=ip_address,
-                            ttl=60)
-                        logger.info(
-                            f"Mise à jour DNS réussie pour {subdomain}.{env_vars['OVH_DNS_ZONE']}"
-                        )
-                    else:
-                        # Création d'un nouvel enregistrement si nécessaire
-                        client.post(
-                            f'/domain/zone/{env_vars["OVH_DNS_ZONE"]}/record',
-                            fieldType='A',
-                            subDomain=subdomain,
-                            target=ip_address,
-                            ttl=60)
-                        logger.info(
-                            f"Création DNS réussie pour {subdomain}.{env_vars['OVH_DNS_ZONE']}"
-                        )
-                except Exception as e:
-                    log_exception(
-                        logger, e,
-                        f"Erreur lors de la mise à jour DNS pour {subdomain}")
-
-        # Rafraîchissement de la zone DNS
-        try:
-            logger.info("Rafraîchissement de la zone DNS...")
-            client.post(f'/domain/zone/{env_vars["OVH_DNS_ZONE"]}/refresh')
-            logger.info("Zone DNS rafraîchie avec succès")
-        except Exception as e:
-            log_exception(logger, e,
-                          "Erreur lors du rafraîchissement de la zone DNS")
+        logger.info("Enregistrement DNS mis à jour avec succès")
+        return True
 
     except Exception as e:
-        log_exception(logger, e, "Erreur lors de la mise à jour DNS")
-        sys.exit(1)
+        logger.error(f"Erreur lors de la mise à jour DNS: {str(e)}")
+        return False
+
 
 if __name__ == "__main__":
     logger.info("Début de la mise à jour DNS")
-    update_dns()
-    logger.info("Mise à jour DNS terminée avec succès")
+    if update_dns_record():
+        logger.info("Mise à jour DNS réussie")
+    else:
+        logger.error("Échec de la mise à jour DNS")
