@@ -64,3 +64,11 @@ docker-compose.override.yml
 prometheus/data/
 grafana/data/
 loki/data/
+
+# fichiers médias
+*.mp4
+*.mp3
+*.jpg
+*.jpeg
+*.png
+*.gif

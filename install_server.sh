@@ -15,7 +15,7 @@
 # =====================================================
 
 # Auteur: Franck DESMEDT
-# Date: 2025-04-11
+# Date: $(date +%Y-%m-%d)
 # Version: 1.0.0
 #
 # Historique des versions :
@@ -58,132 +58,144 @@ if [ "$EUID" -ne 0 ]; then
 fi
 
 # =====================================================
-# Fonction pour charger les variables d'environnement
-# =====================================================
-load_env() {
-    # Se déplacer dans le répertoire du script
-    SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
-    cd "$SCRIPT_DIR"
-
-    log_message "Chargement des variables d'environnement..."
-    log_message "Répertoire du script : $SCRIPT_DIR"
-    log_message "Répertoire courant : $(pwd)"
-    log_message "Contenu du répertoire :"
-    ls -la
-
-    if [ -f .env ]; then
-        log_message "Fichier .env trouvé, début du chargement..."
-        log_message "Contenu du fichier .env :"
-        cat .env
-        log_message "Début du traitement ligne par ligne..."
-
-        while IFS= read -r line; do
-            # Ignorer les lignes vides et les commentaires
-            if [[ -z "$line" ]]; then
-                log_warning "Ligne vide ignorée"
-                continue
-            fi
-            if [[ "$line" =~ ^[[:space:]]*# ]]; then
-                log_warning "Commentaire ignoré : $line"
-                continue
-            fi
-
-            # Extraire la clé et la valeur
-            if [[ "$line" =~ ^([^=]+)=(.*)$ ]]; then
-                key="${BASH_REMATCH[1]}"
-                value="${BASH_REMATCH[2]}"
-
-                # Nettoyer la valeur (supprimer les commentaires et les espaces)
-                value=$(echo "$value" | sed 's/#.*$//' | xargs)
-
-                # Exporter la variable
-                export "$key=$value"
-                log_message "Variable chargée : $key=$value"
-            else
-                log_warning "Ligne ignorée (format invalide) : $line"
-            fi
-        done < .env
-
-        log_message "Fin du chargement des variables"
-    else
-        log_warning "Fichier .env non trouvé, utilisation des valeurs par défaut"
-    fi
-
-    # Vérification des variables obligatoires
-    REQUIRED_VARS=("DYNDNS_DOMAIN" "OVH_APPLICATION_SECRET" "NGINX_SSL_EMAIL")
-    for var in "${REQUIRED_VARS[@]}"; do
-        if [ -z "${!var}" ]; then
-            log_error "Variable obligatoire non définie : $var"
-            exit 1
-        fi
-    done
-
-    log_message "Variables d'environnement chargées :"
-    env | grep -E '^DYNDNS_|^OVH_|^NGINX_'
-}
-
-# =====================================================
 # Chargement des variables d'environnement
 # =====================================================
-load_env
+log_message "Chargement des variables d'environnement..."
 
-# =====================================================
-# Installation des outils de monitoring
-# =====================================================
-log_message "Installation des outils de monitoring..."
-apt install -y prometheus node-exporter
+# Source du script load_env.sh
+source /hebergement_serveur/scripts/load_env.sh
 
-# =====================================================
-# Installation et configuration de ddclient pour DynDNS
-# =====================================================
-log_message "Installation de ddclient pour DynDNS..."
-apt install -y ddclient
-
-# Configuration de ddclient pour OVH
-cat > /etc/ddclient.conf << EOF
-# Configuration pour OVH
-daemon=300
-syslog=yes
-pid=/var/run/ddclient.pid
-ssl=yes
-use=web, web=checkip.dyndns.com/, web-skip='IP Address'
-protocol=dyndns2
-server=ovh.com
-login=${DYNDNS_USERNAME}
-password='${DYNDNS_PASSWORD}'
-zone=${DYNDNS_DOMAIN}
-${DYNDNS_DOMAIN}
-EOF
-
-# Redémarrer ddclient
-systemctl restart ddclient
-systemctl enable ddclient
-
-# Vérification de la configuration DNS
-log_message "Vérification de la configuration DNS..."
-IP_PUBLIC=$(curl -s ifconfig.me)
-log_message "IP publique actuelle : ${IP_PUBLIC}"
-
-# Vérification des enregistrements DNS
-for domain in ${DYNDNS_DOMAIN} traefik.${DYNDNS_DOMAIN} portainer.${DYNDNS_DOMAIN}; do
-    log_message "Vérification de ${domain}..."
-    dig +short ${domain} || log_error "Impossible de résoudre ${domain}"
+# Vérification des variables obligatoires
+REQUIRED_VARS=("DYNDNS_DOMAIN" "NGINX_SSL_EMAIL" "TRAEFIK_PASSWORD" "PORTAINER_ADMIN_PASSWORD")
+for var in "${REQUIRED_VARS[@]}"; do
+    value=$(load_env "$var" "debug")
+    if [ $? -ne 0 ]; then
+        log_error "Variable obligatoire non définie : $var"
+        exit 1
+    else
+        log_message "Variable $var est définie"
+    fi
 done
 
-# Vérification du service ddclient
-log_message "Vérification du service ddclient..."
-systemctl status ddclient
+# =====================================================
+# Installation des prérequis
+# =====================================================
+log_message "Installation des prérequis..."
 
-# Test de mise à jour DNS
-log_message "Test de mise à jour DNS..."
-ddclient -daemon=0 -debug -verbose -noquiet
+# Mise à jour du système
+apt-get update && apt-get upgrade -y
 
-# Vérification des logs
-log_message "Vérification des logs ddclient..."
-journalctl -u ddclient -n 50
+# Installation des paquets nécessaires
+apt-get install -y \
+    apt-transport-https \
+    ca-certificates \
+    curl \
+    gnupg \
+    lsb-release \
+    software-properties-common \
+    git \
+    python3 \
+    python3-pip \
+    python3-venv \
+    nginx \
+    certbot \
+    python3-certbot-nginx
 
 # =====================================================
-# Configuration de Traefik comme Reverse Proxy
+# Installation de Docker
+# =====================================================
+log_message "Installation de Docker..."
+
+# Ajout de la clé GPG officielle de Docker
+curl -fsSL https://download.docker.com/linux/ubuntu/gpg | gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg
+
+# Ajout du dépôt Docker
+echo \
+  "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/ubuntu \
+  $(lsb_release -cs) stable" | tee /etc/apt/sources.list.d/docker.list > /dev/null
+
+# Installation de Docker
+apt-get update
+apt-get install -y docker-ce docker-ce-cli containerd.io
+
+# =====================================================
+# Installation de Docker Compose
+# =====================================================
+log_message "Installation de Docker Compose..."
+
+# Téléchargement de Docker Compose
+curl -L "https://github.com/docker/compose/releases/download/v2.20.0/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
+
+# Rendre Docker Compose exécutable
+chmod +x /usr/local/bin/docker-compose
+
+# =====================================================
+# Configuration de l'environnement Python
+# =====================================================
+log_message "Configuration de l'environnement Python..."
+
+# Création de l'environnement virtuel
+python3 -m venv /hebergement_serveur/venv
+
+# Activation de l'environnement virtuel
+source /hebergement_serveur/venv/bin/activate
+
+# Installation des dépendances Python
+pip install -r /hebergement_serveur/requirements.txt
+
+# =====================================================
+# Configuration de Nginx
+# =====================================================
+log_message "Configuration de Nginx..."
+
+# Création des répertoires pour Nginx
+mkdir -p /etc/nginx/sites-available
+mkdir -p /etc/nginx/sites-enabled
+
+# Configuration de base de Nginx
+cat > /etc/nginx/nginx.conf << EOF
+user www-data;
+worker_processes auto;
+pid /run/nginx.pid;
+include /etc/nginx/modules-enabled/*.conf;
+
+events {
+    worker_connections 768;
+}
+
+http {
+    sendfile on;
+    tcp_nopush on;
+    tcp_nodelay on;
+    keepalive_timeout 65;
+    types_hash_max_size 2048;
+
+    include /etc/nginx/mime.types;
+    default_type application/octet-stream;
+
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_prefer_server_ciphers on;
+
+    access_log /var/log/nginx/access.log;
+    error_log /var/log/nginx/error.log;
+
+    gzip on;
+
+    include /etc/nginx/conf.d/*.conf;
+    include /etc/nginx/sites-enabled/*;
+}
+EOF
+
+# =====================================================
+# Configuration des certificats SSL
+# =====================================================
+log_message "Configuration des certificats SSL..."
+
+# Création des répertoires pour les certificats
+mkdir -p /etc/letsencrypt/live/$(load_env "DYNDNS_DOMAIN" "debug")
+
+# =====================================================
+# Configuration de Traefik
 # =====================================================
 log_message "Configuration de Traefik..."
 
@@ -191,206 +203,30 @@ log_message "Configuration de Traefik..."
 mkdir -p /hebergement_serveur/config/traefik
 mkdir -p /hebergement_serveur/certs
 
-# Configuration de base de Traefik
-cat > /hebergement_serveur/config/traefik/traefik.yml << EOF
-global:
-  checkNewVersion: false
-  sendAnonymousUsage: false
+# =====================================================
+# Configuration de Portainer
+# =====================================================
+log_message "Configuration de Portainer..."
 
-entryPoints:
-  web:
-    address: ":80"
-    http:
-      redirections:
-        entryPoint:
-          to: websecure
-          scheme: https
-  websecure:
-    address: ":443"
-
-providers:
-  docker:
-    endpoint: "unix:///var/run/docker.sock"
-    exposedByDefault: false
-  file:
-    directory: "/etc/traefik/dynamic"
-    watch: true
-
-certificatesResolvers:
-  letsencrypt:
-    acme:
-      email: $NGINX_SSL_EMAIL
-      storage: /etc/traefik/acme.json
-      httpChallenge:
-        entryPoint: web
-
-api:
-  dashboard: true
-  insecure: false
-
-accessLog: {}
-EOF
-
-# Configuration dynamique de Traefik
-mkdir -p /hebergement_serveur/config/traefik/dynamic
-cat > /hebergement_serveur/config/traefik/dynamic/config.yml << EOF
-http:
-  routers:
-    traefik-dashboard:
-      rule: "Host(\`traefik.$DYNDNS_DOMAIN\`)"
-      service: api@internal
-      tls:
-        certResolver: letsencrypt
-      middlewares:
-        - auth
-
-    portainer:
-      rule: "Host(\`portainer.$DYNDNS_DOMAIN\`)"
-      service: portainer
-      tls:
-        certResolver: letsencrypt
-      middlewares:
-        - auth
-
-  services:
-    portainer:
-      loadBalancer:
-        servers:
-          - url: "http://portainer:9000"
-
-  middlewares:
-    auth:
-      basicAuth:
-        users:
-          - "admin:\`openssl passwd -apr1 \$TRAEFIK_PASSWORD\`"
-EOF
-
-# Création du fichier acme.json
-touch /hebergement_serveur/certs/acme.json
-chmod 600 /hebergement_serveur/certs/acme.json
+# Création des répertoires pour Portainer
+mkdir -p /hebergement_serveur/data/portainer
 
 # =====================================================
-# Déploiement des services via Docker Compose
+# Configuration des services
 # =====================================================
-log_message "Déploiement des services..."
+log_message "Configuration des services..."
 
-# Création du fichier docker-compose.yml principal
-cat > /hebergement_serveur/config/docker-compose/docker-compose.yml << EOF
-version: '3.8'
-
-services:
-  traefik:
-    image: traefik:v2.10
-    container_name: traefik
-    restart: unless-stopped
-    security_opt:
-      - no-new-privileges:true
-    ports:
-      - "80:80"
-      - "443:443"
-    volumes:
-      - /etc/localtime:/etc/localtime:ro
-      - /var/run/docker.sock:/var/run/docker.sock:ro
-      - /hebergement_serveur/config/traefik:/etc/traefik
-      - /hebergement_serveur/certs:/certs
-    networks:
-      - traefik_public
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.traefik.entrypoints=websecure"
-      - "traefik.http.routers.traefik.rule=Host(\`traefik.$DYNDNS_DOMAIN\`)"
-      - "traefik.http.routers.traefik.tls=true"
-      - "traefik.http.routers.traefik.tls.certresolver=myresolver"
-      - "traefik.http.routers.traefik.middlewares=secure-headers@file"
-
-  portainer:
-    image: portainer/portainer-ce:latest
-    container_name: portainer
-    restart: unless-stopped
-    security_opt:
-      - no-new-privileges:true
-    volumes:
-      - /etc/localtime:/etc/localtime:ro
-      - /var/run/docker.sock:/var/run/docker.sock:ro
-      - /hebergement_serveur/data/portainer:/data
-    networks:
-      - traefik_public
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.portainer.entrypoints=websecure"
-      - "traefik.http.routers.portainer.rule=Host(\`portainer.$DYNDNS_DOMAIN\`)"
-      - "traefik.http.routers.portainer.tls=true"
-      - "traefik.http.routers.portainer.tls.certresolver=myresolver"
-      - "traefik.http.routers.portainer.middlewares=secure-headers@file"
-
-networks:
-  traefik_public:
-    name: traefik_public
-EOF
-
-# =====================================================
 # Redémarrage des services
-# =====================================================
-log_message "Redémarrage des services..."
+systemctl restart nginx
 systemctl restart docker
-systemctl restart ddclient
-
-# Démarrage des conteneurs
-cd /hebergement_serveur/config/docker-compose
-docker compose up -d
-
-# Vérification des conteneurs
-log_message "Vérification des conteneurs..."
-docker ps
-
-# Vérification des logs
-log_message "Vérification des logs de Traefik..."
-docker logs traefik
 
 # =====================================================
-# Message de fin et instructions
+# Message de fin
 # =====================================================
-log_message "Installation terminée avec succès!"
-log_warning "N'oubliez pas de :"
-log_warning "1. Vérifier les certificats SSL : docker logs traefik"
-log_warning "2. Configurer Portainer selon vos besoins"
-log_warning "3. Sécuriser vos conteneurs Docker"
-log_warning "4. Configurer vos règles de pare-feu selon vos besoins"
-
-echo "Pour accéder à Traefik : https://traefik.$DYNDNS_DOMAIN"
-echo "Pour accéder à Portainer : https://portainer.$DYNDNS_DOMAIN"
-
-# =====================================================
-# Fonction pour tester la connexion à l'API OVH
-# =====================================================
-test_ovh_api() {
-    log_message "Test de connexion à l'API OVH..."
-
-    # Vérification des variables d'API
-    if [ -z "$OVH_APPLICATION_KEY" ] || [ -z "$OVH_APPLICATION_SECRET" ] || [ -z "$OVH_CONSUMER_KEY" ]; then
-        log_error "Variables d'API OVH manquantes"
-        return 1
-    fi
-
-    # Test de connexion à l'API
-    response=$(curl -s -X GET \
-        -H "X-Ovh-Application: $OVH_APPLICATION_KEY" \
-        -H "X-Ovh-Timestamp: $(date +%s)" \
-        -H "X-Ovh-Signature: $(echo -n "$OVH_APPLICATION_SECRET+$OVH_CONSUMER_KEY+GET+/domain/zone/$DYNDNS_DOMAIN/record+$(date +%s)" | sha1sum | cut -d' ' -f1)" \
-        -H "X-Ovh-Consumer: $OVH_CONSUMER_KEY" \
-        "https://api.ovh.com/1.0/domain/zone/$DYNDNS_DOMAIN/record")
-
-    if [ $? -eq 0 ]; then
-        log_message "Connexion à l'API OVH réussie"
-        log_message "Réponse de l'API : $response"
-        return 0
-    else
-        log_error "Échec de la connexion à l'API OVH"
-        return 1
-    fi
-}
-
-# =====================================================
-# Test de l'API OVH
-# =====================================================
-test_ovh_api
+log_message "Installation du serveur terminée avec succès!"
+log_message "Prochaines étapes :"
+log_message "1. Exécuter configure_ovh_dns.sh pour configurer le DNS"
+log_message "2. Exécuter configure_traefik.sh pour configurer Traefik"
+log_message "3. Configurer vos applications dans Portainer"
+log_message "4. Vérifier les certificats SSL"
+log_message "5. Configurer vos règles de pare-feu selon vos besoins"
