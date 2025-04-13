@@ -1,8 +1,19 @@
 #!/bin/bash
 
+# =====================================================
 # Script de configuration de Traefik
+# Ce script configure Traefik comme reverse proxy
+# =====================================================
+
 # Auteur: Franck DESMEDT
-# Date: $(date +%Y-%m-%d)
+# Date: 2025-04-12
+# Version: 1.0.0
+
+# =====================================================
+# Chargement des fonctions de logging
+# =====================================================
+SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+source "$SCRIPT_DIR/scripts/logger.sh"
 
 # =====================================================
 # Configuration des couleurs pour les messages
@@ -28,47 +39,74 @@ log_warning() {
 }
 
 # =====================================================
+# Fonction de masquage des informations sensibles
+# =====================================================
+mask_sensitive() {
+    local value="$1"
+    local visible_chars=5
+    if [ -z "$value" ]; then
+        echo "***"
+    else
+        echo "${value:0:$visible_chars}***"
+    fi
+}
+
+# =====================================================
 # Vérification des privilèges root
 # =====================================================
-if [ "$EUID" -ne 0 ]; then
-    log_error "Ce script doit être exécuté en tant que root"
-    exit 1
-fi
+check_root
 
 # =====================================================
 # Chargement des variables d'environnement
 # =====================================================
 log_message "Chargement des variables d'environnement..."
 
-# Source du script load_env.sh
-source /hebergement_serveur/scripts/load_env.sh
+# Liste des variables requises
+required_vars=(
+    "DYNDNS_DOMAIN"
+    "NGINX_SSL_EMAIL"
+    "TRAEFIK_PASSWORD"
+)
 
-# Vérification des variables obligatoires
-REQUIRED_VARS=("DYNDNS_DOMAIN" "NGINX_SSL_EMAIL" "TRAEFIK_PASSWORD")
-for var in "${REQUIRED_VARS[@]}"; do
+# Vérification et exportation de chaque variable
+for var in "${required_vars[@]}"; do
     value=$(load_env "$var" "debug")
     if [ $? -ne 0 ]; then
-        log_error "Variable obligatoire non définie : $var"
+        log_error "Variable requise non définie : $var"
         exit 1
     else
-        log_message "Variable $var est définie"
+        # Exportation de la variable
+        export "$var=$value"
+        # Masquage des valeurs sensibles dans les logs
+        if [[ "$var" == *"PASSWORD"* ]]; then
+            log_message "Variable définie et exportée : $var=$(mask_sensitive "$value")"
+        else
+            log_message "Variable définie et exportée : $var=$value"
+        fi
     fi
 done
+
+# =====================================================
+# Installation des dépendances
+# =====================================================
+log_message "Installation des dépendances..."
+execute_command "apt-get update" "Mise à jour des paquets"
+execute_command "apt-get install -y docker.io docker-compose" "Installation des dépendances"
 
 # =====================================================
 # Configuration de Traefik
 # =====================================================
 log_message "Configuration de Traefik..."
 
-# Création des répertoires pour Traefik
-mkdir -p /hebergement_serveur/config/traefik
-mkdir -p /hebergement_serveur/certs
+# Création des répertoires nécessaires
+create_directory "/etc/traefik"
+create_directory "/etc/traefik/ssl"
 
-# Configuration de base de Traefik
-cat > /hebergement_serveur/config/traefik/traefik.yml << EOF
-global:
-  checkNewVersion: false
-  sendAnonymousUsage: false
+# Création du fichier de configuration Traefik
+cat > /etc/traefik/traefik.yml << EOF
+api:
+  dashboard: true
+  insecure: false
 
 entryPoints:
   web:
@@ -85,71 +123,27 @@ providers:
   docker:
     endpoint: "unix:///var/run/docker.sock"
     exposedByDefault: false
-  file:
-    directory: "/etc/traefik/dynamic"
-    watch: true
 
 certificatesResolvers:
-  letsencrypt:
+  myresolver:
     acme:
-      email: $(load_env "NGINX_SSL_EMAIL" "debug")
+      email: ${NGINX_SSL_EMAIL}
       storage: /etc/traefik/acme.json
       httpChallenge:
         entryPoint: web
 
-api:
-  dashboard: true
-  insecure: false
+accessLog:
+  filePath: "/var/log/traefik/access.log"
+  format: json
 
-accessLog: {}
+log:
+  filePath: "/var/log/traefik/traefik.log"
+  level: INFO
 EOF
 
-# Configuration dynamique de Traefik
-mkdir -p /hebergement_serveur/config/traefik/dynamic
-cat > /hebergement_serveur/config/traefik/dynamic/config.yml << EOF
-http:
-  routers:
-    traefik-dashboard:
-      rule: "Host(\`traefik.$(load_env "DYNDNS_DOMAIN" "debug")\`)"
-      service: api@internal
-      tls:
-        certResolver: letsencrypt
-      middlewares:
-        - auth
-
-    portainer:
-      rule: "Host(\`portainer.$(load_env "DYNDNS_DOMAIN" "debug")\`)"
-      service: portainer
-      tls:
-        certResolver: letsencrypt
-      middlewares:
-        - auth
-
-  services:
-    portainer:
-      loadBalancer:
-        servers:
-          - url: "http://portainer:9000"
-
-  middlewares:
-    auth:
-      basicAuth:
-        users:
-          - "admin:\`openssl passwd -apr1 \$(load_env "TRAEFIK_PASSWORD" "debug")\`"
-EOF
-
-# Création du fichier acme.json
-touch /hebergement_serveur/certs/acme.json
-chmod 600 /hebergement_serveur/certs/acme.json
-
-# =====================================================
-# Configuration Docker Compose pour Traefik
-# =====================================================
-log_message "Configuration Docker Compose pour Traefik..."
-
-mkdir -p /hebergement_serveur/config/docker-compose
-cat > /hebergement_serveur/config/docker-compose/docker-compose.yml << EOF
-version: '3.8'
+# Création du fichier docker-compose.yml
+cat > /etc/traefik/docker-compose.yml << EOF
+version: '3'
 
 services:
   traefik:
@@ -158,23 +152,26 @@ services:
     restart: unless-stopped
     security_opt:
       - no-new-privileges:true
+    networks:
+      - proxy
     ports:
-      - "80:80"
-      - "443:443"
+      - 80:80
+      - 443:443
     volumes:
       - /etc/localtime:/etc/localtime:ro
       - /var/run/docker.sock:/var/run/docker.sock:ro
-      - /hebergement_serveur/config/traefik:/etc/traefik
-      - /hebergement_serveur/certs:/certs
-    networks:
-      - traefik_public
+      - /etc/traefik/traefik.yml:/traefik.yml:ro
+      - /etc/traefik/acme.json:/acme.json
+      - /etc/traefik/ssl:/etc/traefik/ssl
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.traefik.entrypoints=websecure"
-      - "traefik.http.routers.traefik.rule=Host(\`traefik.$(load_env "DYNDNS_DOMAIN" "debug")\`)"
+      - "traefik.http.routers.traefik.rule=Host(\`traefik.${DYNDNS_DOMAIN}\`)"
       - "traefik.http.routers.traefik.tls=true"
       - "traefik.http.routers.traefik.tls.certresolver=myresolver"
-      - "traefik.http.routers.traefik.middlewares=secure-headers@file"
+      - "traefik.http.routers.traefik.service=api@internal"
+      - "traefik.http.routers.traefik.middlewares=traefik-auth"
+      - "traefik.http.middlewares.traefik-auth.basicauth.users=admin:${TRAEFIK_PASSWORD}"
 
   portainer:
     image: portainer/portainer-ce:latest
@@ -182,57 +179,63 @@ services:
     restart: unless-stopped
     security_opt:
       - no-new-privileges:true
+    networks:
+      - proxy
     volumes:
       - /etc/localtime:/etc/localtime:ro
       - /var/run/docker.sock:/var/run/docker.sock:ro
-      - /hebergement_serveur/data/portainer:/data
-    networks:
-      - traefik_public
+      - /etc/traefik/portainer:/data
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.portainer.entrypoints=websecure"
-      - "traefik.http.routers.portainer.rule=Host(\`portainer.$(load_env "DYNDNS_DOMAIN" "debug")\`)"
+      - "traefik.http.routers.portainer.rule=Host(\`portainer.${DYNDNS_DOMAIN}\`)"
       - "traefik.http.routers.portainer.tls=true"
       - "traefik.http.routers.portainer.tls.certresolver=myresolver"
-      - "traefik.http.routers.portainer.middlewares=secure-headers@file"
+      - "traefik.http.routers.portainer.service=portainer"
+      - "traefik.http.services.portainer.loadbalancer.server.port=9000"
+      - "traefik.http.routers.portainer.middlewares=portainer-auth"
+      - "traefik.http.middlewares.portainer-auth.basicauth.users=admin:${TRAEFIK_PASSWORD}"
 
 networks:
-  traefik_public:
-    name: traefik_public
+  proxy:
+    external: true
 EOF
+
+# Création du fichier acme.json
+touch /etc/traefik/acme.json
+chmod 600 /etc/traefik/acme.json
+
+# Création du réseau Docker
+execute_command "docker network create proxy" "Création du réseau Docker"
 
 # =====================================================
 # Démarrage des services
 # =====================================================
 log_message "Démarrage des services..."
 
-# Redémarrage de Docker
-systemctl restart docker
+# Arrêt des conteneurs existants
+execute_command "docker-compose -f /etc/traefik/docker-compose.yml down" "Arrêt des conteneurs existants"
 
 # Démarrage des conteneurs
-cd /hebergement_serveur/config/docker-compose
-docker compose up -d
+execute_command "docker-compose -f /etc/traefik/docker-compose.yml up -d" "Démarrage des conteneurs"
+
+# =====================================================
+# Vérification de l'état des services
+# =====================================================
+log_message "Vérification de l'état des services..."
+
+# Attente de 10 secondes pour laisser le temps aux services de démarrer
+sleep 10
 
 # Vérification des conteneurs
-log_message "Vérification des conteneurs..."
-docker ps
-
-# Vérification des logs
-log_message "Vérification des logs de Traefik..."
-docker logs traefik
+check_service_status "Traefik" "traefik"
+check_service_status "Portainer" "portainer"
 
 # =====================================================
-# Message de fin
+# Affichage des informations de connexion
 # =====================================================
-log_message "Configuration de Traefik terminée avec succès!"
-log_message "URLs d'accès aux services :"
-log_message "1. Interface Traefik : https://traefik.$(load_env "DYNDNS_DOMAIN" "debug")"
-log_message "   - Identifiants : admin / $(load_env "TRAEFIK_PASSWORD" "debug")"
-log_message "2. Interface Portainer : https://portainer.$(load_env "DYNDNS_DOMAIN" "debug")"
-log_message "   - Identifiants : admin / $(load_env "PORTAINER_ADMIN_PASSWORD" "debug")"
-
-log_warning "N'oubliez pas de :"
-log_warning "1. Vérifier les certificats SSL : docker logs traefik"
-log_warning "2. Configurer Portainer selon vos besoins"
-log_warning "3. Sécuriser vos conteneurs Docker"
-log_warning "4. Configurer vos règles de pare-feu selon vos besoins"
+log_message "Configuration terminée avec succès"
+log_message "Traefik Dashboard: https://traefik.${DYNDNS_DOMAIN}"
+log_message "Portainer: https://portainer.${DYNDNS_DOMAIN}"
+log_message "Utilisateur: admin"
+log_message "Mot de passe: $(mask_sensitive "${TRAEFIK_PASSWORD}")"

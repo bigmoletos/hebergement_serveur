@@ -8,15 +8,17 @@ pour les sous-domaines configurés.
 
 import os
 import sys
-import logging
+
+# Ajout du répertoire scripts au PYTHONPATH
+script_dir = os.path.dirname(os.path.abspath(__file__))
+sys.path.append(script_dir)
+
 import ovh
 from datetime import datetime
+from logger import setup_logger, mask_sensitive, check_required_vars, log_exception
 
-# Configuration du logging
-logging.basicConfig(level=logging.INFO,
-                    format='%(asctime)s - %(levelname)s - %(message)s',
-                    datefmt='%Y-%m-%d %H:%M:%S')
-logger = logging.getLogger(__name__)
+# Configuration du logger
+logger = setup_logger('ovh_dns', '/var/log/ovh_dns.log')
 
 
 def load_env_vars():
@@ -32,7 +34,7 @@ def load_env_vars():
                     key, value = line.split('=', 1)
                     env_vars[key.strip()] = value.strip().strip("'")
     except Exception as e:
-        logger.error(f"Erreur lors du chargement du fichier .env: {e}")
+        log_exception(logger, e, "Erreur lors du chargement du fichier .env")
         sys.exit(1)
 
     return env_vars
@@ -51,17 +53,17 @@ def update_dns():
             'OVH_DNS_RECORD_ID'
         ]
 
-        for var in required_vars:
-            if var not in env_vars:
-                logger.error(f"Variable manquante: {var}")
-                sys.exit(1)
+        if not check_required_vars(required_vars, logger):
+            sys.exit(1)
 
         # Configuration du client OVH
+        logger.info("Configuration du client OVH...")
         client = ovh.Client(
             endpoint=env_vars.get('OVH_API_ENDPOINT', 'ovh-eu'),
             application_key=env_vars['OVH_APPLICATION_KEY'],
             application_secret=env_vars['OVH_APPLICATION_SECRET'],
             consumer_key=env_vars['OVH_CONSUMER_KEY'])
+        logger.info("Client OVH configuré avec succès")
 
         # Récupération de l'adresse IP actuelle
         ip_address = env_vars.get('IP_ADDRESS')
@@ -69,8 +71,11 @@ def update_dns():
             logger.error("Adresse IP non définie")
             sys.exit(1)
 
+        logger.info(f"Adresse IP à utiliser : {mask_sensitive(ip_address)}")
+
         # Mise à jour de l'enregistrement DNS principal
         try:
+            logger.info("Mise à jour de l'enregistrement DNS principal...")
             client.put(
                 f'/domain/zone/{env_vars["OVH_DNS_ZONE"]}/record/{env_vars["OVH_DNS_RECORD_ID"]}',
                 subDomain=env_vars['OVH_DNS_SUBDOMAIN'],
@@ -80,7 +85,7 @@ def update_dns():
                 f"Mise à jour DNS réussie pour {env_vars['OVH_DNS_SUBDOMAIN']}.{env_vars['OVH_DNS_ZONE']}"
             )
         except Exception as e:
-            logger.error(f"Erreur lors de la mise à jour DNS: {e}")
+            log_exception(logger, e, "Erreur lors de la mise à jour DNS")
             sys.exit(1)
 
         # Mise à jour des sous-domaines supplémentaires
@@ -90,6 +95,7 @@ def update_dns():
             subdomain = subdomain.strip()
             if subdomain:
                 try:
+                    logger.info(f"Traitement du sous-domaine : {subdomain}")
                     # Recherche de l'ID de l'enregistrement pour le sous-domaine
                     records = client.get(
                         f'/domain/zone/{env_vars["OVH_DNS_ZONE"]}/record',
@@ -118,22 +124,22 @@ def update_dns():
                             f"Création DNS réussie pour {subdomain}.{env_vars['OVH_DNS_ZONE']}"
                         )
                 except Exception as e:
-                    logger.error(
-                        f"Erreur lors de la mise à jour DNS pour {subdomain}: {e}"
-                    )
+                    log_exception(
+                        logger, e,
+                        f"Erreur lors de la mise à jour DNS pour {subdomain}")
 
         # Rafraîchissement de la zone DNS
         try:
+            logger.info("Rafraîchissement de la zone DNS...")
             client.post(f'/domain/zone/{env_vars["OVH_DNS_ZONE"]}/refresh')
             logger.info("Zone DNS rafraîchie avec succès")
         except Exception as e:
-            logger.error(
-                f"Erreur lors du rafraîchissement de la zone DNS: {e}")
+            log_exception(logger, e,
+                          "Erreur lors du rafraîchissement de la zone DNS")
 
     except Exception as e:
-        logger.error(f"Erreur lors de la mise à jour DNS: {e}")
+        log_exception(logger, e, "Erreur lors de la mise à jour DNS")
         sys.exit(1)
-
 
 if __name__ == "__main__":
     logger.info("Début de la mise à jour DNS")

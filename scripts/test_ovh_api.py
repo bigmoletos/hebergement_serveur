@@ -17,12 +17,10 @@ import time
 import os
 from dotenv import load_dotenv
 from pathlib import Path
-import logging
+from logger import setup_logger, mask_sensitive, check_required_vars
 
-# Configuration du logging
-logging.basicConfig(level=logging.INFO,
-                    format='%(asctime)s - %(levelname)s - %(message)s')
-logger = logging.getLogger(__name__)
+# Configuration du logger
+logger = setup_logger(__name__)
 
 
 def load_env_variables(env_path: Path) -> tuple:
@@ -38,13 +36,21 @@ def load_env_variables(env_path: Path) -> tuple:
     logger.info(f"Recherche du fichier .env dans : {env_path}")
     load_dotenv(dotenv_path=env_path)
 
-    ak = os.getenv('OVH_APPLICATION_KEY', '6f1ea4004ed10b98')
-    as_ = os.getenv('OVH_APPLICATION_SECRET',
-                    '321ed8151e9337d63d90d0e961a80dbb')
+    # Vérification des variables requises
+    required_vars = [
+        'OVH_APPLICATION_KEY', 'OVH_APPLICATION_SECRET', 'OVH_CONSUMER_KEY'
+    ]
+    check_required_vars(required_vars)
+
+    # Récupération des variables
+    ak = os.getenv('OVH_APPLICATION_KEY')
+    as_ = os.getenv('OVH_APPLICATION_SECRET')
     ck = os.getenv('OVH_CONSUMER_KEY')
 
-    if not all([ak, as_, ck]):
-        raise ValueError("Certaines variables d'environnement sont manquantes")
+    # Masquage des valeurs sensibles dans les logs
+    logger.info(f"Application Key: {mask_sensitive(ak)}")
+    logger.info(f"Application Secret: {mask_sensitive(as_)}")
+    logger.info(f"Consumer Key: {mask_sensitive(ck)}")
 
     return (ak, as_, ck)
 
@@ -92,10 +98,10 @@ def print_debug_info(timestamp: str, to_sign: str, signature: str,
     logger.info("\nInformations de débogage:")
     logger.info("------------------------")
     logger.info(f"Timestamp: {timestamp}")
-    logger.info(f"Application Key: {application_key}")
-    logger.info(f"Consumer Key: {consumer_key}")
+    logger.info(f"Application Key: {mask_sensitive(application_key)}")
+    logger.info(f"Consumer Key: {mask_sensitive(consumer_key)}")
     logger.info(f"URL: {full_url}")
-    logger.info(f"Signature générée: {signature}")
+    logger.info(f"Signature générée: {mask_sensitive(signature)}")
 
     print("\nHeaders à utiliser dans les requêtes:")
     print("--------------------------------")

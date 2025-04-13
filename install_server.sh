@@ -27,35 +27,15 @@
 # =====================================================
 
 # =====================================================
-# Configuration des couleurs pour les messages
+# Chargement des fonctions de logging
 # =====================================================
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-NC='\033[0m'
-
-# =====================================================
-# Fonctions d'affichage des messages
-# =====================================================
-log_message() {
-    echo -e "${GREEN}[INFO]${NC} $1"
-}
-
-log_error() {
-    echo -e "${RED}[ERREUR]${NC} $1"
-}
-
-log_warning() {
-    echo -e "${YELLOW}[ATTENTION]${NC} $1"
-}
+SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+source "$SCRIPT_DIR/scripts/logger.sh"
 
 # =====================================================
 # Vérification des privilèges root
 # =====================================================
-if [ "$EUID" -ne 0 ]; then
-    log_error "Ce script doit être exécuté en tant que root"
-    exit 1
-fi
+check_root
 
 # =====================================================
 # Chargement des variables d'environnement
@@ -63,7 +43,7 @@ fi
 log_message "Chargement des variables d'environnement..."
 
 # Source du script load_env.sh
-source /hebergement_serveur/scripts/load_env.sh
+source "$SCRIPT_DIR/scripts/load_env.sh"
 
 # Vérification des variables obligatoires
 REQUIRED_VARS=("DYNDNS_DOMAIN" "NGINX_SSL_EMAIL" "TRAEFIK_PASSWORD" "PORTAINER_ADMIN_PASSWORD")
@@ -73,7 +53,14 @@ for var in "${REQUIRED_VARS[@]}"; do
         log_error "Variable obligatoire non définie : $var"
         exit 1
     else
-        log_message "Variable $var est définie"
+        # Exportation de la variable
+        export "$var=$value"
+        # Masquage des valeurs sensibles dans les logs
+        if [[ "$var" == *"PASSWORD"* ]]; then
+            log_message "Variable définie et exportée : $var=$(mask_sensitive "$value")"
+        else
+            log_message "Variable définie et exportée : $var=$value"
+        fi
     fi
 done
 
@@ -83,10 +70,10 @@ done
 log_message "Installation des prérequis..."
 
 # Mise à jour du système
-apt-get update && apt-get upgrade -y
+execute_command "apt-get update && apt-get upgrade -y" "Mise à jour du système"
 
 # Installation des paquets nécessaires
-apt-get install -y \
+execute_command "apt-get install -y \
     apt-transport-https \
     ca-certificates \
     curl \
@@ -99,7 +86,7 @@ apt-get install -y \
     python3-venv \
     nginx \
     certbot \
-    python3-certbot-nginx
+    python3-certbot-nginx" "Installation des paquets nécessaires"
 
 # =====================================================
 # Installation de Docker
@@ -107,16 +94,16 @@ apt-get install -y \
 log_message "Installation de Docker..."
 
 # Ajout de la clé GPG officielle de Docker
-curl -fsSL https://download.docker.com/linux/ubuntu/gpg | gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg
+execute_command "curl -fsSL https://download.docker.com/linux/ubuntu/gpg | gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg" "Ajout de la clé GPG Docker"
 
 # Ajout du dépôt Docker
-echo \
-  "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/ubuntu \
-  $(lsb_release -cs) stable" | tee /etc/apt/sources.list.d/docker.list > /dev/null
+execute_command "echo \
+  \"deb [arch=\$(dpkg --print-architecture) signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/ubuntu \
+  \$(lsb_release -cs) stable\" | tee /etc/apt/sources.list.d/docker.list > /dev/null" "Configuration du dépôt Docker"
 
 # Installation de Docker
-apt-get update
-apt-get install -y docker-ce docker-ce-cli containerd.io
+execute_command "apt-get update" "Mise à jour des dépôts"
+execute_command "apt-get install -y docker-ce docker-ce-cli containerd.io" "Installation de Docker"
 
 # =====================================================
 # Installation de Docker Compose
@@ -124,10 +111,10 @@ apt-get install -y docker-ce docker-ce-cli containerd.io
 log_message "Installation de Docker Compose..."
 
 # Téléchargement de Docker Compose
-curl -L "https://github.com/docker/compose/releases/download/v2.20.0/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
+execute_command "curl -L \"https://github.com/docker/compose/releases/download/v2.20.0/docker-compose-\$(uname -s)-\$(uname -m)\" -o /usr/local/bin/docker-compose" "Téléchargement de Docker Compose"
 
 # Rendre Docker Compose exécutable
-chmod +x /usr/local/bin/docker-compose
+execute_command "chmod +x /usr/local/bin/docker-compose" "Configuration des permissions de Docker Compose"
 
 # =====================================================
 # Configuration de l'environnement Python
@@ -135,13 +122,13 @@ chmod +x /usr/local/bin/docker-compose
 log_message "Configuration de l'environnement Python..."
 
 # Création de l'environnement virtuel
-python3 -m venv /hebergement_serveur/venv
+execute_command "python3 -m venv /hebergement_serveur/venv" "Création de l'environnement virtuel"
 
 # Activation de l'environnement virtuel
 source /hebergement_serveur/venv/bin/activate
 
 # Installation des dépendances Python
-pip install -r /hebergement_serveur/requirements.txt
+execute_command "pip install -r /hebergement_serveur/requirements.txt" "Installation des dépendances Python"
 
 # =====================================================
 # Configuration de Nginx
@@ -149,8 +136,8 @@ pip install -r /hebergement_serveur/requirements.txt
 log_message "Configuration de Nginx..."
 
 # Création des répertoires pour Nginx
-mkdir -p /etc/nginx/sites-available
-mkdir -p /etc/nginx/sites-enabled
+create_directory "/etc/nginx/sites-available"
+create_directory "/etc/nginx/sites-enabled"
 
 # Configuration de base de Nginx
 cat > /etc/nginx/nginx.conf << EOF
@@ -192,7 +179,7 @@ EOF
 log_message "Configuration des certificats SSL..."
 
 # Création des répertoires pour les certificats
-mkdir -p /etc/letsencrypt/live/$(load_env "DYNDNS_DOMAIN" "debug")
+create_directory "/etc/letsencrypt/live/$(load_env "DYNDNS_DOMAIN" "debug")"
 
 # =====================================================
 # Configuration de Traefik
@@ -200,8 +187,8 @@ mkdir -p /etc/letsencrypt/live/$(load_env "DYNDNS_DOMAIN" "debug")
 log_message "Configuration de Traefik..."
 
 # Création des répertoires pour Traefik
-mkdir -p /hebergement_serveur/config/traefik
-mkdir -p /hebergement_serveur/certs
+create_directory "/hebergement_serveur/config/traefik"
+create_directory "/hebergement_serveur/certs"
 
 # =====================================================
 # Configuration de Portainer
@@ -209,7 +196,7 @@ mkdir -p /hebergement_serveur/certs
 log_message "Configuration de Portainer..."
 
 # Création des répertoires pour Portainer
-mkdir -p /hebergement_serveur/data/portainer
+create_directory "/hebergement_serveur/data/portainer"
 
 # =====================================================
 # Configuration des services
@@ -217,8 +204,8 @@ mkdir -p /hebergement_serveur/data/portainer
 log_message "Configuration des services..."
 
 # Redémarrage des services
-systemctl restart nginx
-systemctl restart docker
+execute_command "systemctl restart nginx" "Redémarrage de Nginx"
+execute_command "systemctl restart docker" "Redémarrage de Docker"
 
 # =====================================================
 # Message de fin

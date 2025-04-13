@@ -10,6 +10,12 @@
 # Version: 1.0.0
 
 # =====================================================
+# Chargement des fonctions de logging
+# =====================================================
+SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+source "$SCRIPT_DIR/scripts/logger.sh"
+
+# =====================================================
 # Configuration des couleurs pour les messages
 # =====================================================
 RED='\033[0;31m'
@@ -33,12 +39,22 @@ log_warning() {
 }
 
 # =====================================================
+# Fonction de masquage des informations sensibles
+# =====================================================
+mask_sensitive() {
+    local value="$1"
+    local visible_chars=5
+    if [ -z "$value" ]; then
+        echo "***"
+    else
+        echo "${value:0:$visible_chars}***"
+    fi
+}
+
+# =====================================================
 # Vérification des privilèges root
 # =====================================================
-if [ "$EUID" -ne 0 ]; then
-    log_error "Ce script doit être exécuté en tant que root"
-    exit 1
-fi
+check_root
 
 # =====================================================
 # Chargement des variables d'environnement
@@ -46,7 +62,7 @@ fi
 log_message "Chargement des variables d'environnement..."
 
 # Source du script load_env.sh
-source /hebergement_serveur/scripts/load_env.sh
+source "$SCRIPT_DIR/scripts/load_env.sh"
 
 # Liste des variables OVH requises
 ovh_vars=(
@@ -67,7 +83,12 @@ for var in "${ovh_vars[@]}"; do
     else
         # Exportation de la variable
         export "$var=$value"
-        log_message "Variable OVH définie et exportée : $var=${value:0:4}..."  # Afficher seulement les 4 premiers caractères pour la sécurité
+        # Masquage des valeurs sensibles dans les logs
+        if [[ "$var" == *"KEY"* ]] || [[ "$var" == *"SECRET"* ]]; then
+            log_message "Variable OVH définie et exportée : $var=$(mask_sensitive "$value")"
+        else
+            log_message "Variable OVH définie et exportée : $var=$value"
+        fi
     fi
 done
 
@@ -75,8 +96,16 @@ done
 # Installation des dépendances
 # =====================================================
 log_message "Installation des dépendances..."
-apt-get update
-apt-get install -y python3 python3-pip python3-ovh
+execute_command "apt-get update" "Mise à jour des paquets"
+execute_command "apt-get install -y python3 python3-pip" "Installation des dépendances Python"
+execute_command "pip3 install ovh python-dotenv" "Installation des dépendances Python"
+
+# =====================================================
+# Installation du module logger
+# =====================================================
+log_message "Installation du module logger..."
+execute_command "mkdir -p /usr/local/lib/python3.10/dist-packages" "Création du répertoire pour les modules Python"
+execute_command "cp $SCRIPT_DIR/scripts/logger.py /usr/local/lib/python3.10/dist-packages/" "Copie du module logger"
 
 # =====================================================
 # Configuration de l'API OVH
@@ -84,7 +113,7 @@ apt-get install -y python3 python3-pip python3-ovh
 log_message "Configuration de l'API OVH..."
 
 # Création du répertoire de configuration
-mkdir -p /etc/ovh
+create_directory "/etc/ovh"
 
 # Création du fichier de configuration
 cat > /etc/ovh/ovh.conf << EOF
@@ -101,7 +130,7 @@ EOF
 log_message "Création du script de mise à jour DNS..."
 
 # Création du répertoire pour les scripts
-mkdir -p /usr/local/bin
+create_directory "/usr/local/bin"
 
 # Création du script Python
 cat > /usr/local/bin/update_dns.py << EOF
@@ -109,22 +138,13 @@ cat > /usr/local/bin/update_dns.py << EOF
 
 import ovh
 import socket
-import logging
 import os
 import sys
-import traceback
 
-# Configuration du logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(levelname)s - %(message)s',
-    handlers=[
-        logging.FileHandler('/var/log/ovh_dns.log'),
-        logging.StreamHandler()
-    ]
-)
+from logger import setup_logger, mask_sensitive, check_required_vars, log_exception
 
-logger = logging.getLogger(__name__)
+# Configuration du logger
+logger = setup_logger('ovh_dns', '/var/log/ovh_dns.log')
 
 def get_public_ip():
     try:
@@ -133,8 +153,7 @@ def get_public_ip():
         response = requests.get('https://api.ipify.org')
         return response.text
     except Exception as e:
-        logger.error(f"Erreur lors de la récupération de l'IP publique: {e}")
-        logger.error(f"Traceback: {traceback.format_exc()}")
+        log_exception(logger, e, "Erreur lors de la récupération de l'IP publique")
         return None
 
 def update_dns_record():
@@ -149,12 +168,8 @@ def update_dns_record():
             'OVH_DNS_RECORD_ID'
         ]
 
-        for var in required_vars:
-            if var not in os.environ:
-                logger.error(f"Variable d'environnement manquante : {var}")
-                return False
-            else:
-                logger.info(f"Variable {var} trouvée")
+        if not check_required_vars(required_vars, logger):
+            return False
 
         # Configuration du client OVH avec les variables d'environnement
         logger.info("Configuration du client OVH...")
@@ -173,7 +188,7 @@ def update_dns_record():
             logger.error("Impossible de récupérer l'IP publique")
             return False
 
-        logger.info(f"Nouvelle IP publique: {new_ip}")
+        logger.info(f"Nouvelle IP publique: {mask_sensitive(new_ip)}")
 
         # Mise à jour de l'enregistrement DNS
         logger.info("Mise à jour de l'enregistrement DNS...")
@@ -188,12 +203,11 @@ def update_dns_record():
             ttl=60
         )
 
-        logger.info(f"Enregistrement DNS mis à jour: {result}")
+        logger.info(f"Enregistrement DNS mis à jour: {mask_sensitive(str(result))}")
         return True
 
     except Exception as e:
-        logger.error(f"Erreur lors de la mise à jour DNS: {e}")
-        logger.error(f"Traceback: {traceback.format_exc()}")
+        log_exception(logger, e, "Erreur lors de la mise à jour DNS")
         return False
 
 if __name__ == "__main__":
@@ -204,11 +218,8 @@ if __name__ == "__main__":
         logger.error("Échec de la mise à jour DNS")
 EOF
 
-# Installation de python-dotenv
-pip3 install python-dotenv
-
 # Rendre le script exécutable
-chmod +x /usr/local/bin/update_dns.py
+execute_command "chmod +x /usr/local/bin/update_dns.py" "Rendre le script exécutable"
 
 # =====================================================
 # Configuration du cron pour la mise à jour automatique
@@ -222,6 +233,6 @@ log_message "Configuration du cron pour la mise à jour automatique..."
 # Exécution initiale du script
 # =====================================================
 log_message "Exécution initiale du script de mise à jour DNS..."
-/usr/local/bin/update_dns.py
+execute_command "/usr/local/bin/update_dns.py" "Mise à jour DNS initiale"
 
 log_message "Configuration DNS OVH terminée avec succès"
