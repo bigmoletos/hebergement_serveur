@@ -29,8 +29,14 @@ mask_sensitive() {
 load_env() {
     local var_name="$1"
     local debug_mode="${2:-false}"
-    local env_file="/hebergement_serveur/.env"
+    local script_dir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+    local env_file="$script_dir/../.env"
     local temp_file="/tmp/tmp.$(date +%s).env"
+
+    if [ ! -f "$env_file" ]; then
+        echo "Erreur: Fichier .env non trouvé dans $env_file"
+        return 1
+    fi
 
     # Création d'un fichier temporaire sans commentaires et lignes vides
     grep -v '^#' "$env_file" | grep -v '^$' > "$temp_file"

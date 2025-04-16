@@ -1,46 +1,68 @@
 #!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+Script de mise à jour DNS pour OVH via une interface web.
+
+Ce script fournit une interface web pour gérer les mises à jour DNS
+dynamiques via l'API OVH. Il permet de :
+- Afficher l'état actuel des enregistrements DNS
+- Mettre à jour les enregistrements avec l'IP publique actuelle
+- Rafraîchir la zone DNS
+
+Auteur: Franck DESMEDT
+Date: 2024
+Version: 1.0
+"""
 
 import sys
-import os
 import logging
-from dotenv import load_dotenv
-from logger import setup_logger, mask_sensitive, check_required_vars
+import requests
+from logger import setup_logger
+from config import config
 
 # Configuration du logger
 logger = setup_logger(__name__)
 
 
 def update_dns_record():
-    try:
-        # Chargement des variables d'environnement
-        load_dotenv('/hebergement_serveur/.env')
+    """
+    Met à jour l'enregistrement DNS avec l'IP publique actuelle.
 
+    Cette fonction :
+    1. Vérifie les variables de configuration requises
+    2. Récupère l'IP publique actuelle
+    3. Met à jour l'enregistrement DNS via l'API OVH
+    4. Rafraîchit la zone DNS
+
+    Returns:
+        bool: True si la mise à jour a réussi, False sinon
+
+    Raises:
+        Exception: En cas d'erreur lors de la mise à jour
+    """
+    try:
         # Vérification des variables requises
         required_vars = [
             'OVH_APPLICATION_KEY', 'OVH_APPLICATION_SECRET',
             'OVH_CONSUMER_KEY', 'OVH_DNS_ZONE', 'OVH_DNS_SUBDOMAIN',
-            'OVH_DNS_RECORD_ID'
+            'OVH_DNS_RECORD_ID', 'IP_FREEBOX'
         ]
-        check_required_vars(required_vars)
+        if not config.check_required_vars(required_vars):
+            return False
 
         # Récupération de l'IP publique
-        import requests
-        response = requests.get('https://api.ipify.org')
-        new_ip = response.text
-        logger.info(f"Nouvelle IP publique : {mask_sensitive(new_ip)}")
+        logger.info("Récupération de l'IP publique...")
+        new_ip = config.get_required('IP_FREEBOX')
+        logger.info(f"Nouvelle IP publique : {config.mask_sensitive(new_ip)}")
 
         # Connexion à l'API OVH
-        import ovh
-        client = ovh.Client(
-            endpoint='ovh-eu',
-            application_key=os.environ['OVH_APPLICATION_KEY'],
-            application_secret=os.environ['OVH_APPLICATION_SECRET'],
-            consumer_key=os.environ['OVH_CONSUMER_KEY'])
+        logger.info("Connexion à l'API OVH...")
+        client = config.get_ovh_client()
 
         # Mise à jour de l'enregistrement DNS
-        zone = os.environ['OVH_DNS_ZONE']
-        record_id = os.environ['OVH_DNS_RECORD_ID']
-        subdomain = os.environ['OVH_DNS_SUBDOMAIN']
+        zone = config.get_required('OVH_DNS_ZONE')
+        record_id = config.get_required('OVH_DNS_RECORD_ID')
+        subdomain = config.get_required('OVH_DNS_SUBDOMAIN')
 
         try:
             # Récupération de l'enregistrement actuel
@@ -49,7 +71,7 @@ def update_dns_record():
 
             if current_ip != new_ip:
                 logger.info(
-                    f"Mise à jour nécessaire : IP actuelle {mask_sensitive(current_ip)} -> nouvelle IP {mask_sensitive(new_ip)}"
+                    f"Mise à jour nécessaire : IP actuelle {config.mask_sensitive(current_ip)} -> nouvelle IP {config.mask_sensitive(new_ip)}"
                 )
 
                 # Mise à jour de l'enregistrement
@@ -75,6 +97,11 @@ def update_dns_record():
 
 
 if __name__ == "__main__":
+    """
+    Point d'entrée principal du script.
+
+    Exécute la mise à jour DNS et affiche le résultat.
+    """
     logger.info("Début de la mise à jour DNS")
     if update_dns_record():
         logger.info("Mise à jour réussie")

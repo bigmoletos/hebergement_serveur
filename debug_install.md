@@ -219,3 +219,80 @@ Subsystem sftp /usr/lib/openssh/sftp-server
    chmod 755 fichier
    chown user:group fichier
    ```
+
+## 2025-04-13 : Problèmes avec ddclient
+
+### Problème 1 : Erreur de chemin lors de la copie de configuration
+```bash
+Error: cp: cannot stat 'hebergement_serveur/scripts/ddclient.conf': No such file or directory
+```
+
+**Solution** :
+1. Se placer dans le bon répertoire
+2. Utiliser le chemin relatif correct :
+```bash
+cd /hebergement_serveur
+sudo cp scripts/ddclient.conf /etc/ddclient.conf
+```
+
+### Problème 2 : Permissions incorrectes
+**Symptômes** :
+- Fichiers .sh avec permissions 777 (trop permissives)
+- ddclient.conf avec permissions 644 (trop permissives pour les mots de passe)
+
+**Solution** :
+1. Ajustement des permissions des fichiers de configuration :
+```bash
+sudo chmod 600 /etc/ddclient.conf
+sudo chown root:root /etc/ddclient.conf
+```
+
+2. Ajustement des permissions des scripts :
+```bash
+sudo chmod 644 scripts/*.py
+sudo chmod 644 scripts/*.conf
+sudo chmod 755 scripts/*.sh
+```
+
+### Problème 3 : Erreur d'authentification ddclient
+**Symptômes** :
+```
+FAILED: {"class":"Client::Unauthorized","message":"..."}
+```
+
+**Solution** :
+1. Configuration correcte dans `/etc/ddclient.conf` :
+```conf
+# Configuration générale
+daemon=300
+syslog=yes
+pid=/var/run/ddclient.pid
+ssl=yes
+
+# Configuration OVH
+protocol=dyndns2
+use=web
+server=www.ovh.com
+login=iaproject.fr-identdns
+password='+-*/2000Dns/*-+'
+zone=iaproject.fr
+airquality.iaproject.fr
+```
+
+2. Redémarrage du service :
+```bash
+sudo systemctl restart ddclient
+```
+
+### Vérification
+```bash
+# Test de la configuration
+sudo ddclient -daemon=0 -debug -verbose -noquiet
+
+# Vérification du service
+sudo systemctl status ddclient
+
+# Surveillance des logs
+sudo tail -f /var/log/ddclient.log
+sudo journalctl -u ddclient -f
+```

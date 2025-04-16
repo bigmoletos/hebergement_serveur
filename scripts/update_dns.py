@@ -1,9 +1,17 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Script de mise à jour DNS pour OVH
+Script de mise à jour DNS pour OVH.
+
 Ce script met à jour automatiquement les enregistrements DNS
-pour les sous-domaines configurés.
+pour les sous-domaines configurés. Il :
+- Récupère l'IP publique actuelle
+- Met à jour les enregistrements DNS via l'API OVH
+- Rafraîchit la zone DNS
+
+Auteur: Franck DESMEDT
+Date: 2024
+Version: 1.0
 """
 
 import os
@@ -11,9 +19,11 @@ import sys
 import logging
 import socket
 import requests
+from config import config
+from logger import setup_logger
 
 # Configuration du logger
-logger = logging.getLogger('ovh_dns')
+logger = setup_logger('ovh_dns')
 logger.setLevel(logging.INFO)
 
 # Création du handler pour les logs
@@ -27,10 +37,24 @@ logger.addHandler(handler)
 
 
 def get_public_ip():
+    """
+    Récupère l'IP publique actuelle du serveur.
+
+    Utilise l'IP_FREEBOX définie dans les variables d'environnement.
+
+    Returns:
+        str: L'IP publique du serveur ou None en cas d'erreur
+
+    Raises:
+        Exception: En cas d'erreur lors de la récupération de l'IP
+    """
     try:
-        # Utilisation de api.ipify.org pour obtenir l'IP publique
-        response = requests.get('https://api.ipify.org')
-        return response.text
+        # Utilisation de l'IP_FREEBOX via config.py
+        ip_freebox = config.get_required('IP_FREEBOX')
+        if not ip_freebox:
+            logger.error("Variable IP_FREEBOX non définie")
+            return None
+        return ip_freebox
     except Exception as e:
         logger.error(
             f"Erreur lors de la récupération de l'IP publique: {str(e)}")
@@ -38,6 +62,21 @@ def get_public_ip():
 
 
 def update_dns_record():
+    """
+    Met à jour l'enregistrement DNS avec l'IP publique actuelle.
+
+    Cette fonction :
+    1. Vérifie les variables d'environnement requises
+    2. Récupère l'IP publique actuelle
+    3. Met à jour l'enregistrement DNS via l'API OVH
+    4. Rafraîchit la zone DNS
+
+    Returns:
+        bool: True si la mise à jour a réussi, False sinon
+
+    Raises:
+        Exception: En cas d'erreur lors de la mise à jour
+    """
     try:
         # Vérification des variables d'environnement requises
         required_vars = [
@@ -88,6 +127,11 @@ def update_dns_record():
 
 
 if __name__ == "__main__":
+    """
+    Point d'entrée principal du script.
+
+    Exécute la mise à jour DNS et affiche le résultat.
+    """
     logger.info("Début de la mise à jour DNS")
     if update_dns_record():
         logger.info("Mise à jour DNS réussie")
