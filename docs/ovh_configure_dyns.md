@@ -4,18 +4,16 @@ Ce guide détaille les étapes pour configurer et tester un service DynDNS en ut
 
 ## Table des matières
 1. [Prérequis](#prérequis)
-2. [Création des clés API OVH](#création-des-clés-api-ovh)
-3. [Configuration des enregistrements DNS](#configuration-des-enregistrements-dns)
-4. [Test de l'API](#test-de-lapi)
-5. [Exemples de tests réalisés](#exemples-de-tests-réalisés)
-6. [Dépannage](#dépannage)
-7. [Débogage ddclient](#débogage-ddclient)
-8. [Vérification manuelle de la configuration](#vérification-manuelle-de-la-configuration)
-9. [Configuration SSH](#configuration-ssh)
-10. [Configuration SSH Freebox](#configuration-ssh-freebox)
-11. [Gestion des permissions OVH API](#gestion-des-permissions-ovh-api)
-12. [Gestion des Tokens dans la Console OVH](#gestion-des-tokens-dans-la-console-ovh)
-13. [Gestion des TTL DNS](#gestion-des-ttl-dns)
+2. [Première étape : Génération d'un nouveau token OVH](#première-étape-génération-d'un-nouveau-token-ovh)
+3. [Création des clés API OVH](#création-des-clés-api-ovh)
+4. [Configuration des enregistrements DNS](#configuration-des-enregistrements-dns)
+5. [Test de l'API](#test-de-lapi)
+6. [Exemples de tests réalisés](#exemples-de-tests-réalisés)
+7. [Dépannage](#dépannage)
+8. [Gestion des permissions OVH API](#gestion-des-permissions-ovh-api)
+9. [Gestion des Tokens dans la Console OVH](#gestion-des-tokens-dans-la-console-ovh)
+10. [Gestion des TTL DNS](#gestion-des-ttl-dns)
+11. [Configuration Traefik avec OVH](#configuration-traefik-avec-ovh)
 
 ## Prérequis
 
@@ -24,8 +22,53 @@ Ce guide détaille les étapes pour configurer et tester un service DynDNS en ut
 - Python 3.x installé
 - Les packages Python requis :
   ```bash
-  pip install python-dotenv requests
+  pip install python-dotenv requests ovh
   ```
+
+## Première étape : Génération d'un nouveau token OVH
+
+1. **Utilisation du script get_new_token.py** :
+   ```bash
+   # Rendre le script exécutable
+   chmod +x scripts/get_new_token.py
+
+   # Exécuter le script
+   ./scripts/get_new_token.py
+   ```
+
+2. **Le script va** :
+   - Créer un nouveau token avec les permissions nécessaires
+   - Générer une URL de validation
+   - Afficher les instructions pour finaliser l'authentification
+
+3. **Permissions configurées automatiquement** :
+   ```python
+   access_rules = [
+       # Lecture des informations de zone
+       {'method': 'GET', 'path': '/domain/zone/*'},
+       # Gestion des enregistrements DNS
+       {'method': 'GET', 'path': '/domain/zone/*/record'},
+       {'method': 'POST', 'path': '/domain/zone/*/record'},
+       {'method': 'PUT', 'path': '/domain/zone/*/record/*'},
+       {'method': 'DELETE', 'path': '/domain/zone/*/record/*'},
+       # Rafraîchissement de la zone
+       {'method': 'POST', 'path': '/domain/zone/*/refresh'}
+   ]
+   ```
+
+4. **Instructions après exécution** :
+   - Visiter l'URL de validation fournie
+   - Se connecter avec son compte OVH
+   - Accepter les droits demandés
+   - Mettre à jour le fichier .env avec la nouvelle Consumer Key
+
+5. **Vérification** :
+   ```bash
+   # Vérifier que le token fonctionne
+   python scripts/test_ovh_api.py
+   ```
+
+> **Important** : Cette étape doit être effectuée avant toute configuration de Traefik ou de DynDNS, car elle fournit les permissions nécessaires pour les deux services.
 
 ## Création des clés API OVH
 
@@ -78,17 +121,13 @@ Le fichier `.env` est organisé en plusieurs sections pour éviter les conflits 
 
 2. Via l'API (console) :
    - Accédez à https://eu.api.ovh.com/console/
-   
-   https://eu.api.ovh.com/console/?section=%2Fauth&branch=v1#get-/auth/details
-
    - Authentifiez-vous avec vos clés API
    - Utilisez l'endpoint : `/domain/zone/{zoneName}/record`
 
 3. Création d'un enregistrement A :
    ```bash
-
- #  obtenir l'IP publique
-curl https://api.ipify.org
+   # Obtenir l'IP publique
+   curl https://api.ipify.org
 
    POST /domain/zone/{zoneName}/record
    {
@@ -280,23 +319,6 @@ Résultat :
 - Cible actuelle : IP publique du serveur (91.17***)
 ```
 
-### Notes importantes sur les tests
-
-1. **IP de redirection** :
-   - IP initiale (serveur OVH) : 164.132.235.17
-   - IP publique locale : 91.173.110.4
-   - IP locale (non utilisable directement) : 192.168.1.134
-
-2. **Configuration DynDNS** :
-   - Username : iaproject.fr-identdns
-   - Intervalle de mise à jour : 300 secondes
-   - Serveur DynDNS : www.ovh.com
-
-3. **Points de vigilance** :
-   - Ne pas utiliser d'IP locale dans les enregistrements DNS
-   - Toujours rafraîchir la zone après modification
-   - Vérifier les TTL pour la propagation
-
 ## Dépannage
 
 ### Erreurs courantes
@@ -331,399 +353,6 @@ Résultat :
    curl -v https://eu.api.ovh.com/v1/auth/time
    ```
 
-## Bonnes pratiques
-
-1. **Sécurité**
-   - Ne partagez jamais vos credentials
-   - Utilisez des variables d'environnement
-   - Limitez les permissions du Consumer Key
-
-2. **Performance**
-   - Utilisez un TTL de 0 pour les mises à jour rapides
-   - Évitez les requêtes inutiles
-   - Mettez en cache les réponses quand possible
-
-3. **Maintenance**
-   - Surveillez les logs
-   - Vérifiez régulièrement les enregistrements
-   - Documentez les modifications
-
-## Ressources utiles
-
-- [Documentation API OVH](https://docs.ovh.com/fr/api/)
-- [Console API OVH](https://eu.api.ovh.com/console/)
-- [Guide DynDNS OVH](https://docs.ovh.com/fr/domains/utilisation-dynhost/)
-
-## Débogage ddclient
-
-### Erreur d'authentification
-
-Si vous rencontrez cette erreur :
-```
-FAILED: {"class":"Client::Unauthorized","message":"..."}
-```
-
-Solutions possibles :
-
-1. **Vérification de la configuration ddclient** :
-   ```bash
-   # Configuration correcte pour OVH
-   protocol=dyndns2
-   use=web
-   ssl=yes
-   server=www.ovh.com
-   login=votre_domaine-identdns     # Format exact requis
-   password='votre_mot_de_passe'
-   zone=votre_domaine.fr            # Ajout de la zone
-   ```
-
-2. **Test manuel de l'authentification** :
-   ```bash
-   # Test via curl
-   curl -v "https://www.ovh.com/nic/update?system=dyndns&hostname=airquality.iaproject.fr&myip=$(curl -s https://api.ipify.org)" \
-   --user "iaproject.fr-identdns:votre_mot_de_passe"
-   ```
-
-3. **Vérification des logs** :
-   ```bash
-   sudo tail -f /var/log/ddclient.log
-   sudo journalctl -u ddclient -f
-   ```
-
-### Configuration recommandée
-
-Voici la configuration complète recommandée pour `/etc/ddclient.conf` :
-
-```conf
-# Configuration générale
-daemon=300
-syslog=yes
-pid=/var/run/ddclient.pid
-ssl=yes
-
-# Configuration OVH
-protocol=dyndns2
-use=web
-server=www.ovh.com
-login=iaproject.fr-identdns
-password='+-*/2000Dns/*-+'
-zone=iaproject.fr
-airquality.iaproject.fr
-```
-
-### Procédure de redémarrage
-
-Après modification de la configuration :
-```bash
-# Arrêt du service
-sudo systemctl stop ddclient
-
-# Vérification de la configuration
-sudo ddclient -daemon=0 -debug -verbose -noquiet
-
-# Redémarrage du service
-sudo systemctl restart ddclient
-
-# Vérification du statut
-sudo systemctl status ddclient
-```
-
-### Points de vérification
-
-1. **Format du login** :
-   - Doit être exactement : `domaine-identdns`
-   - Exemple : `iaproject.fr-identdns`
-
-2. **Nom d'hôte complet** :
-   - Doit inclure le domaine complet
-   - Exemple : `airquality.iaproject.fr`
-
-3. **Permissions des fichiers** :
-   ```bash
-   sudo chown root:root /etc/ddclient.conf
-   sudo chmod 600 /etc/ddclient.conf
-   ```
-
-4. **Vérification de la résolution DNS** :
-   ```bash
-   dig airquality.iaproject.fr
-   host airquality.iaproject.fr
-   ```
-
-## Vérification manuelle de la configuration
-
-### 1. Vérification des tokens OVH
-
-1. **Liste des tokens actifs** :
-   ```bash
-   # Liste tous les tokens
-   curl -X GET "https://eu.api.ovh.com/1.0/auth/currentCredential" \
-        -H "X-Ovh-Application: $OVH_APPLICATION_KEY" \
-        -H "X-Ovh-Consumer: $OVH_CONSUMER_KEY"
-   ```
-
-2. **Suppression des tokens inutiles** :
-   ```bash
-   # Suppression d'un token spécifique
-   curl -X DELETE "https://eu.api.ovh.com/1.0/auth/currentCredential" \
-        -H "X-Ovh-Application: $OVH_APPLICATION_KEY" \
-        -H "X-Ovh-Consumer: $OVH_CONSUMER_KEY"
-   ```
-
-### 2. Vérification de la configuration Freebox
-
-1. **Vérification de l'IP publique** :
-   ```bash
-   # IP publique actuelle
-   curl -s https://api.ipify.org
-
-   # Comparer avec l'IP dans OVH
-   dig +short airquality.iaproject.fr
-   ```
-
-2. **Vérification des redirections de port** :
-   ```bash
-   # Liste des redirections configurées
-   curl -s "http://mafreebox.freebox.fr/api/v8/fw/redir/" \
-        -H "X-Fbx-App-Auth: $FREEBOX_APP_TOKEN"
-   ```
-
-3. **Vérification de la configuration DynDNS Freebox** :
-   ```bash
-   # Configuration DynDNS
-   curl -s "http://mafreebox.freebox.fr/api/v8/ddns/config/" \
-        -H "X-Fbx-App-Auth: $FREEBOX_APP_TOKEN"
-   ```
-
-### 3. Vérification de la résolution DNS
-
-1. **Test de résolution directe** :
-   ```bash
-   # Résolution DNS
-   dig +short airquality.iaproject.fr
-
-   # Test de propagation
-   dig +trace airquality.iaproject.fr
-   ```
-
-2. **Test de connectivité** :
-   ```bash
-   # Test de connexion au serveur
-   curl -v https://airquality.iaproject.fr
-
-   # Vérification des en-têtes
-   curl -I https://airquality.iaproject.fr
-   ```
-
-### 4. Vérification des logs
-
-1. **Logs OVH** :
-   ```bash
-   # Vérification des dernières actions
-   cat /var/log/ovh_dns.log
-   ```
-
-2. **Logs Freebox** :
-   ```bash
-   # Accès aux logs via l'interface web
-   # http://mafreebox.freebox.fr/log/
-   ```
-
-### 5. Procédure de vérification complète
-
-1. **Vérification initiale** :
-   - IP publique Freebox
-   - Configuration DynDNS Freebox
-   - Redirections de port
-   - Résolution DNS
-
-2. **Test de mise à jour** :
-   ```bash
-   # Forcer une mise à jour
-   /usr/local/bin/update_dns.py
-
-   # Vérifier la nouvelle IP
-   dig +short airquality.iaproject.fr
-   ```
-
-3. **Vérification finale** :
-   - Temps de propagation DNS
-   - Accessibilité du service
-   - Stabilité de la connexion
-
-### 6. Dépannage courant
-
-1. **Problèmes de résolution DNS** :
-   - Vérifier les serveurs DNS
-   - Tester avec différents résolveurs
-   - Vérifier le TTL
-
-2. **Problèmes de redirection** :
-   - Vérifier les règles de pare-feu
-   - Tester la connectivité locale
-   - Vérifier les logs Freebox
-
-3. **Problèmes DynDNS** :
-   - Vérifier les credentials
-   - Tester la connexion API
-   - Vérifier les permissions
-
-## Configuration SSH
-
-### 1. Génération des clés SSH
-
-1. **Générer une nouvelle paire de clés** :
-   ```bash
-   # Générer une nouvelle paire de clés
-   ssh-keygen -t rsa -b 4096 -f ~/.ssh/airquality_server_key
-
-   # Vérifier les permissions
-   chmod 600 ~/.ssh/airquality_server_key
-   chmod 644 ~/.ssh/airquality_server_key.pub
-   ```
-
-2. **Configuration du serveur** :
-   ```bash
-   # Copier la clé publique sur le serveur
-   ssh-copy-id -i ~/.ssh/airquality_server_key.pub user@192.168.1.134
-
-   # Vérifier les permissions sur le serveur
-   ssh user@192.168.1.134 "chmod 700 ~/.ssh && chmod 600 ~/.ssh/authorized_keys"
-   ```
-
-### 2. Configuration du client SSH
-
-1. **Configuration du fichier ~/.ssh/config** :
-   ```bash
-   # Créer ou modifier la configuration
-   cat > ~/.ssh/config << EOF
-   Host airquality
-       HostName 192.168.1.134
-       User user
-       IdentityFile ~/.ssh/airquality_server_key
-       StrictHostKeyChecking no
-   EOF
-
-   # Tester la connexion
-   ssh airquality
-   ```
-
-2. **Vérification de la connexion** :
-   ```bash
-   # Test de connexion
-   ssh -v airquality
-
-   # Vérification des logs
-   tail -f /var/log/auth.log
-   ```
-
-### 3. Dépannage SSH
-
-1. **Erreurs courantes** :
-   - "Permission denied (publickey)" : Vérifier les permissions des clés
-   - "Identity file not accessible" : Vérifier le chemin de la clé
-   - "Connection refused" : Vérifier que le service SSH est actif
-
-2. **Vérification du serveur SSH** :
-   ```bash
-   # Statut du service
-   sudo systemctl status sshd
-
-   # Configuration
-   sudo cat /etc/ssh/sshd_config | grep -i "PubkeyAuthentication"
-
-   # Logs
-   sudo tail -f /var/log/auth.log
-   ```
-
-3. **Réinitialisation des permissions** :
-   ```bash
-   # Sur le client
-   chmod 700 ~/.ssh
-   chmod 600 ~/.ssh/airquality_server_key
-   chmod 644 ~/.ssh/airquality_server_key.pub
-
-   # Sur le serveur
-   chmod 700 ~/.ssh
-   chmod 600 ~/.ssh/authorized_keys
-   ```
-
-## Configuration SSH Freebox
-
-### 1. Génération de la clé SSH
-
-1. **Génération de la paire de clés** :
-   ```bash
-   # Générer une nouvelle paire de clés
-   ssh-keygen -t rsa -b 4096 -f ~/.ssh/freebox_ultra_key
-
-   # Vérifier les permissions
-   chmod 600 ~/.ssh/freebox_ultra_key
-   chmod 644 ~/.ssh/freebox_ultra_key.pub
-   ```
-
-2. **Configuration du client SSH** :
-   ```bash
-   # Configuration du fichier ~/.ssh/config
-   cat > ~/.ssh/config << EOF
-   Host freebox
-       HostName 192.168.1.254
-       User freebox
-       IdentityFile ~/.ssh/freebox_ultra_key
-       StrictHostKeyChecking no
-   EOF
-   ```
-
-### 2. Configuration de la Freebox
-
-1. **Interface web Freebox** :
-   - Connectez-vous à mafreebox.freebox.fr
-   - Allez dans "Paramètres" > "Système" > "Accès SSH"
-   - Activez l'accès SSH si ce n'est pas déjà fait
-   - Copiez la clé publique :
-     ```bash
-     cat ~/.ssh/freebox_ultra_key.pub
-     ```
-   - Collez la clé dans le champ approprié
-   - Sauvegardez les modifications
-
-2. **Test de la connexion** :
-   ```bash
-   # Test de connexion
-   ssh -v freebox
-
-   # Vérification des logs
-   tail -f /var/log/auth.log
-   ```
-
-### 3. Dépannage Freebox SSH
-
-1. **Erreurs courantes** :
-   - "Permission denied" : Vérifier l'activation SSH dans l'interface Freebox
-   - "Connection refused" : Vérifier que le service SSH est activé sur la Freebox
-   - "Host key verification failed" : Vérifier la configuration StrictHostKeyChecking
-
-2. **Vérification de la configuration** :
-   ```bash
-   # Vérifier la configuration SSH
-   ssh -T freebox
-
-   # Vérifier les permissions
-   ls -l ~/.ssh/freebox_ultra_key*
-   ```
-
-3. **Réinitialisation** :
-   ```bash
-   # Supprimer la clé existante
-   rm ~/.ssh/freebox_ultra_key*
-
-   # Régénérer la clé
-   ssh-keygen -t rsa -b 4096 -f ~/.ssh/freebox_ultra_key
-
-   # Reconfigurer la Freebox
-   # (Suivre les étapes de configuration de l'interface web)
-   ```
-
 ## Gestion des permissions OVH API
 
 ### 1. Vérification des permissions actuelles
@@ -736,21 +365,16 @@ sudo systemctl status ddclient
         -H "X-Ovh-Consumer: $OVH_CONSUMER_KEY"
    ```
 
-2. **Permissions requises pour DynDNS** :
+2. **Permissions requises pour DynDNS et Traefik** :
    - GET /domain/zone/*
    - PUT /domain/zone/*
    - POST /domain/zone/*
    - DELETE /domain/zone/*
+   - GET /domain/zone/*/record
+   - PUT /domain/zone/*/record/*
+   - POST /domain/zone/*/refresh
 
 ### 2. Création d'une nouvelle application
-
- lien pour créer un token
-
-https://www.ovh.com/auth/api/createToken
-
-lien pour obtenir la liste des endpoint OVH
-
-https://github.com/ovh/python-ovh#2-configure-your-application
 
 1. **Script de création** :
    ```python
@@ -772,7 +396,10 @@ https://github.com/ovh/python-ovh#2-configure-your-application
                {'method': 'GET', 'path': '/domain/zone/*'},
                {'method': 'PUT', 'path': '/domain/zone/*'},
                {'method': 'POST', 'path': '/domain/zone/*'},
-               {'method': 'DELETE', 'path': '/domain/zone/*'}
+               {'method': 'DELETE', 'path': '/domain/zone/*'},
+               {'method': 'GET', 'path': '/domain/zone/*/record'},
+               {'method': 'PUT', 'path': '/domain/zone/*/record/*'},
+               {'method': 'POST', 'path': '/domain/zone/*/refresh'}
            ]
 
            result = client.request_consumerkey(access_rules)
@@ -792,40 +419,6 @@ https://github.com/ovh/python-ovh#2-configure-your-application
    - Visiter l'URL de validation
    - Noter le nouveau Consumer Key
    - Mettre à jour le fichier .env
-
-### 3. Mise à jour des variables d'environnement
-
-1. **Configuration du fichier .env** :
-   ```bash
-   # Mettre à jour les variables OVH
-   OVH_APPLICATION_KEY=votre_nouvelle_application_key
-   OVH_APPLICATION_SECRET=votre_nouvelle_application_secret
-   OVH_CONSUMER_KEY=votre_nouveau_consumer_key
-   ```
-
-2. **Vérification de la configuration** :
-   ```bash
-   # Tester la nouvelle configuration
-   python test_ovh_api.py
-   ```
-
-### 4. Dépannage des permissions
-
-1. **Erreurs courantes** :
-   - "This call has not been granted" : Permissions manquantes
-   - "Invalid signature" : Clés API incorrectes
-   - "Resource not found" : Mauvais endpoint
-
-2. **Solutions** :
-   - Vérifier les permissions dans l'interface OVH
-   - Régénérer les clés API
-   - Mettre à jour le Consumer Key
-
-3. **Vérification des logs** :
-   ```bash
-   # Vérifier les logs d'erreur
-   tail -f /var/log/ovh_dns.log
-   ```
 
 ## Gestion des Tokens dans la Console OVH
 
@@ -878,74 +471,6 @@ https://github.com/ovh/python-ovh#2-configure-your-application
         -H "X-Ovh-Consumer: $OVH_CONSUMER_KEY"
    ```
 
-### 4. Bonnes pratiques
-
-1. **Identification des tokens inutiles** :
-   - Tokens expirés
-   - Tokens avec des droits insuffisants
-   - Tokens non utilisés depuis longtemps
-   - Doublons (mêmes droits, même application)
-
-2. **Vérification avant suppression** :
-   ```bash
-   # Vérifier l'utilisation du token
-   curl -X GET "https://eu.api.ovh.com/1.0/auth/credential/{credentialId}/logs" \
-        -H "X-Ovh-Application: $OVH_APPLICATION_KEY" \
-        -H "X-Ovh-Consumer: $OVH_CONSUMER_KEY"
-   ```
-
-3. **Création d'un nouveau token** :
-   - Garder l'ancien token actif pendant la transition
-   - Tester le nouveau token
-   - Supprimer l'ancien token une fois la migration validée
-
-### 5. Script de nettoyage
-
-```bash
-#!/bin/bash
-
-# Configuration
-OVH_APPLICATION_KEY="votre_application_key"
-OVH_APPLICATION_SECRET="votre_application_secret"
-OVH_CONSUMER_KEY="votre_consumer_key"
-
-# Récupération de la liste des tokens
-TOKENS=$(curl -s -X GET "https://eu.api.ovh.com/1.0/auth/credential" \
-    -H "X-Ovh-Application: $OVH_APPLICATION_KEY" \
-    -H "X-Ovh-Consumer: $OVH_CONSUMER_KEY")
-
-# Analyse de chaque token
-for TOKEN_ID in $(echo $TOKENS | jq -r '.[]'); do
-    # Récupération des détails du token
-    TOKEN_DETAILS=$(curl -s -X GET "https://eu.api.ovh.com/1.0/auth/credential/$TOKEN_ID" \
-        -H "X-Ovh-Application: $OVH_APPLICATION_KEY" \
-        -H "X-Ovh-Consumer: $OVH_CONSUMER_KEY")
-
-    # Vérification des droits
-    RIGHTS=$(echo $TOKEN_DETAILS | jq -r '.rules[] | .path')
-
-    # Affichage des informations
-    echo "Token ID: $TOKEN_ID"
-    echo "Droits: $RIGHTS"
-    echo "-------------------"
-done
-```
-
-### 6. Dépannage
-
-1. **Erreurs courantes** :
-   - "Token not found" : Vérifier l'ID du token
-   - "Permission denied" : Vérifier les droits du token utilisé
-   - "Invalid signature" : Vérifier les clés API
-
-2. **Vérification des logs** :
-   ```bash
-   # Logs des actions sur les tokens
-   curl -X GET "https://eu.api.ovh.com/1.0/auth/log" \
-        -H "X-Ovh-Application: $OVH_APPLICATION_KEY" \
-        -H "X-Ovh-Consumer: $OVH_CONSUMER_KEY"
-   ```
-
 ## Gestion des TTL DNS
 
 ### 1. Comprendre les TTL
@@ -984,68 +509,78 @@ done
         }'
    ```
 
-### 3. Bonnes pratiques
+## Configuration Traefik avec OVH
 
-1. **DynDNS (IP dynamique)** :
-   - Utiliser TTL = 60 secondes
-   - Exemples :
-     - airquality.iaproject.fr
-     - sensors.iaproject.fr
-     - dyn.iaproject.fr
+### 1. Configuration du docker-compose.yml
 
-2. **Hébergement statique** :
-   - Utiliser TTL = 0 ou 3600
-   - Exemples :
-     - www.iaproject.fr
-     - blog.iaproject.fr
-     - api.iaproject.fr
+```yaml
+services:
+  traefik:
+    environment:
+      - OVH_ENDPOINT=${OVH_ENDPOINT}
+      - OVH_APPLICATION_KEY=${OVH_APPLICATION_KEY}
+      - OVH_APPLICATION_SECRET=${OVH_APPLICATION_SECRET}
+      - OVH_CONSUMER_KEY=${OVH_CONSUMER_KEY}
+    env_file:
+      - ../.env
+```
 
-3. **Vérification des TTL** :
+### 2. Vérification des variables d'environnement
+
+```bash
+# Vérifier que les variables sont bien chargées
+docker compose config
+```
+
+### 3. Vérification des logs Traefik
+
+```bash
+# Vérifier les logs pour détecter les erreurs
+docker logs traefik
+```
+
+### 4. Contrôles de sécurité
+
+- Vérifier que le fichier acme.json a les bonnes permissions (600)
+- S'assurer que les variables d'environnement sont correctement définies
+- Vérifier que le Consumer Key a les permissions nécessaires
+
+### 5. Dépannage des permissions
+
+1. **Erreurs courantes** :
+   - "This call has not been granted" : Permissions manquantes
+   - "Invalid signature" : Clés API incorrectes
+   - "Resource not found" : Mauvais endpoint
+   - "Unable to obtain ACME certificate" : Problème de permissions OVH
+
+2. **Solutions** :
+   - Vérifier les permissions dans l'interface OVH
+   - Régénérer les clés API avec les bonnes permissions
+   - Mettre à jour le Consumer Key
+   - Vérifier que les variables d'environnement sont correctement chargées
+
+3. **Vérification des logs** :
    ```bash
-   # Liste tous les enregistrements avec leurs TTL
-   curl -X GET "https://eu.api.ovh.com/1.0/domain/zone/iaproject.fr/record" \
-        -H "X-Ovh-Application: $OVH_APPLICATION_KEY" \
-        -H "X-Ovh-Consumer: $OVH_CONSUMER_KEY"
+   # Vérifier les logs d'erreur
+   docker logs traefik
    ```
 
-### 4. Optimisation des TTL
+### 6. Bonnes pratiques
 
-1. **Pour les sous-domaines DynDNS** :
-   - TTL court (60 secondes) pour :
-     - Mise à jour rapide de l'IP
-     - Réactivité aux changements
-     - Minimisation des erreurs DNS
+1. **Sécurité** :
+   - Ne jamais exposer les clés API dans le code
+   - Utiliser des variables d'environnement
+   - Limiter les permissions au strict nécessaire
+   - Vérifier régulièrement les logs pour détecter les tentatives d'accès non autorisées
 
-2. **Pour les sous-domaines statiques** :
-   - TTL long (0 ou 3600) pour :
-     - Réduction de la charge DNS
-     - Meilleure performance
-     - Cache plus efficace
+2. **Maintenance** :
+   - Garder une trace des modifications de permissions
+   - Documenter les changements de configuration
+   - Tester régulièrement la configuration
+   - Mettre à jour la documentation en cas de changement
 
-3. **Mise à jour groupée** :
-   ```bash
-   # Script pour harmoniser les TTL
-   for RECORD_ID in $(curl -s -X GET "https://eu.api.ovh.com/1.0/domain/zone/iaproject.fr/record" \
-        -H "X-Ovh-Application: $OVH_APPLICATION_KEY" \
-        -H "X-Ovh-Consumer: $OVH_CONSUMER_KEY" | jq -r '.[]'); do
-
-     # Vérifier si c'est un sous-domaine DynDNS
-     if [[ $RECORD_ID == *"dyn"* ]]; then
-       TTL=60
-     else
-       TTL=0
-     fi
-
-     # Mettre à jour le TTL
-     curl -X PUT "https://eu.api.ovh.com/1.0/domain/zone/iaproject.fr/record/$RECORD_ID" \
-          -H "X-Ovh-Application: $OVH_APPLICATION_KEY" \
-          -H "X-Ovh-Consumer: $OVH_CONSUMER_KEY" \
-          -H "Content-Type: application/json" \
-          -d "{\"ttl\": $TTL}"
-   done
-
-   # Rafraîchir la zone
-   curl -X POST "https://eu.api.ovh.com/1.0/domain/zone/iaproject.fr/refresh" \
-        -H "X-Ovh-Application: $OVH_APPLICATION_KEY" \
-        -H "X-Ovh-Consumer: $OVH_CONSUMER_KEY"
-   ```
+3. **Monitoring** :
+   - Surveiller les logs Traefik
+   - Vérifier la validité des certificats
+   - Tester régulièrement la résolution DNS
+   - Vérifier la propagation des changements

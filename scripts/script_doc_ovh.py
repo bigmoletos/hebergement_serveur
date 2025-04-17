@@ -80,7 +80,7 @@ headers = {
     'accept':
     'application/json',
     'authorization':
-    'Bearer eyJhbGciOiJFZERTQSIsImtpZCI6IkVGNThFMkUxMTFBODNCREFEMDE4OUUzMzZERTk3MDhFNjRDMDA4MDEiLCJraW5kIjoib2F1dGgyIiwidHlwIjoiSldUIn0.eyJBY2Nlc3NUb2tlbiI6ImI0ZDFhZjhkMDQyZmQ1MTlkYzQ3MzQwM2FmOWUyOWFkNmU2YjVmNGQ1MTViODU5NWY0ZDFjMzQ0MjczZmU2NWMiLCJpYXQiOjE3NDQ3MjQ3NzJ9.4l7JNawQN8tiWly7wHHr5S4JHhOe5mvqjSiKad0xYnm_4ikepRWMm8F5vQzTnfT8OV2vUILsTkFgEzFgB2vBCA'
+    'Bearer eyJhbGciOiJFZERTQSIsImtpZCI6IkVGNThFMkUxMTFBODNCREFEMDE4OUUzMzZERTk3MDhFNjRDMDA4MDEiLCJraW5kIjoib2F1dGgyIiwidHlwIjoiSldUIn0.eyJBY2Nlc3NUb2tlbiI6Ijg0NDRjMDNmNjA5YjJlMDk5YWUxZTAwMjY2MTM0M2QzMmIyZWE4YWY3NzM3MzQ0YjA1MTRhZTU0NWNlMTE5MTMiLCJpYXQiOjE3NDQ4MjE2MjB9.Xn0-ywPG5V9Vrb-a26hQag39AwQZUB9u7Lds8tTdD90tHEtD5AsS5N6I8XlbeBHA3qbuncDpxvhsPAIzLldBAQ'
 }
 # current credential
 response_current_credential = requests.get('https://eu.api.ovh.com/v1/auth/currentCredential', headers=headers)

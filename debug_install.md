@@ -296,3 +296,67 @@ sudo systemctl status ddclient
 sudo tail -f /var/log/ddclient.log
 sudo journalctl -u ddclient -f
 ```
+
+## 2025-04-13 : Mise à jour du noyau Linux
+
+### Procédure complète de mise à jour du noyau
+
+1. **Vérification des noyaux installés** :
+   ```bash
+   dpkg -l | grep linux-image
+   ```
+
+2. **Installation/réinstallation du nouveau noyau** :
+   ```bash
+   sudo apt-get install --reinstall linux-image-5.15.0-138-generic linux-headers-5.15.0-138-generic
+   ```
+
+3. **Sauvegarde de la configuration GRUB** :
+   ```bash
+   sudo cp /etc/default/grub /etc/default/grub.backup
+   ```
+
+4. **Réinstallation de GRUB** :
+   ```bash
+   sudo grub-install /dev/sda
+   sudo apt install --reinstall linux-image-5.15.0-138-generic
+   sudo apt-get install --reinstall grub-pc
+   sudo grub-install /dev/sda
+   sudo update-grub
+   ```
+
+5. **Identification du menu GRUB** :
+   ```bash
+   grep -A1 menuentry /boot/grub/grub.cfg
+   ```
+   Notez le nom complet de l'entrée souhaitée, par exemple :
+   ```
+   menuentry 'Ubuntu, with Linux 5.15.0-138-generic' --class ubuntu --class gnu-linux --class gnu --class os $menuentry_id_option 'gnulinux-5.15.0-138-generic-advanced-06206d3c-1dd2-4fb6-bb96-1d15d9e53bbd'
+   ```
+
+6. **Configuration de GRUB** :
+   ```bash
+   sudo nano /etc/default/grub
+   ```
+   Modifiez la ligne GRUB_DEFAULT avec le nom complet, par exemple :
+   ```bash
+   GRUB_DEFAULT="gnulinux-advanced-06206d3c-1dd2-4fb6-bb96-1d15d9e53bbd>gnulinux-5.15.0-138-generic-advanced-06206d3c-1dd2-4fb6-bb96-1d15d9e53bbd"
+   ```
+
+7. **Application des changements** :
+   ```bash
+   sudo update-grub
+   sudo reboot
+   ```
+
+8. **Vérification** :
+   ```bash
+   uname -r
+   ```
+   Devrait afficher : `5.15.0-138-generic`
+
+### Points importants
+- Toujours sauvegarder la configuration GRUB avant modification
+- Utiliser le nom complet de l'entrée GRUB
+- Vérifier la version du noyau après redémarrage
+- En cas de problème, restaurer la sauvegarde de GRUB

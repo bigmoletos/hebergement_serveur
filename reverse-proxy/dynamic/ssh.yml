@@ -1,0 +1,14 @@
+tcp:
+  routers:
+    ssh:
+      entryPoints:
+        - "ssh"
+      rule: "HostSNI(`*`)"
+      service: ssh
+      tls: {}
+
+  services:
+    ssh:
+      loadBalancer:
+        servers:
+          - address: "ubuntu:22"

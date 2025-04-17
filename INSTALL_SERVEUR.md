@@ -136,6 +136,19 @@ dig +short airquality.iaproject.fr
 
 1. Exécutez le script de configuration Traefik :
 ```bash
+# preparation dossier
+mkdir -p hebergement_serveur/reverse-proxy/dynamic
+touch hebergement_serveur/reverse-proxy/acme.json
+chmod 600 hebergement_serveur/reverse-proxy/acme.json
+```
+
+```bash
+# copie des ficiers
+cd hebergement_serveur/
+scp -i "ssh/airquality_server_key" -r reverse-proxy user@192.168.1.134:/hebergement_serveur
+```
+
+```bash
 sudo ./configure_traefik.sh
 ```
 
@@ -218,6 +231,64 @@ Pour surveiller l'état du serveur :
 2. Consultez les métriques dans Prometheus
 3. Configurez des alertes dans Prometheus
 4. Surveillez les logs dans Traefik
+
+### 3.4 Mise à jour du Noyau Linux
+
+Pour mettre à jour le noyau Linux :
+
+1. **Vérification des noyaux installés** :
+   ```bash
+   dpkg -l | grep linux-image
+   ```
+
+2. **Installation du nouveau noyau** :
+   ```bash
+   sudo apt-get install --reinstall linux-image-5.15.0-138-generic linux-headers-5.15.0-138-generic
+   ```
+
+3. **Sauvegarde de la configuration GRUB** :
+   ```bash
+   sudo cp /etc/default/grub /etc/default/grub.backup
+   ```
+
+4. **Réinstallation de GRUB** :
+   ```bash
+   sudo grub-install /dev/sda
+   sudo apt install --reinstall linux-image-5.15.0-138-generic
+   sudo apt-get install --reinstall grub-pc
+   sudo grub-install /dev/sda
+   sudo update-grub
+   ```
+
+5. **Configuration de GRUB** :
+   ```bash
+   # Identifier l'entrée GRUB souhaitée
+   grep -A1 menuentry /boot/grub/grub.cfg
+
+   # Modifier la configuration
+   sudo nano /etc/default/grub
+   ```
+   Modifier GRUB_DEFAULT avec le nom complet de l'entrée, par exemple :
+   ```bash
+   GRUB_DEFAULT="gnulinux-advanced-06206d3c-1dd2-4fb6-bb96-1d15d9e53bbd>gnulinux-5.15.0-138-generic-advanced-06206d3c-1dd2-4fb6-bb96-1d15d9e53bbd"
+   ```
+
+6. **Application des changements** :
+   ```bash
+   sudo update-grub
+   sudo reboot
+   ```
+
+7. **Vérification** :
+   ```bash
+   uname -r
+   ```
+   Devrait afficher : `5.15.0-138-generic`
+
+> **Important** :
+> - Toujours sauvegarder la configuration GRUB avant modification
+> - En cas de problème, restaurer la sauvegarde : `sudo cp /etc/default/grub.backup /etc/default/grub`
+> - Vérifier la version du noyau après redémarrage
 
 ## 4. Dépannage
 
