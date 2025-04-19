@@ -14,6 +14,9 @@ entryPoints:
           scheme: https
   websecure:
     address: ":443"
+    http:
+      tls:
+        certResolver: letsencrypt
   ssh:
     address: ":2222"
 
@@ -22,22 +25,15 @@ certificatesResolvers:
   letsencrypt:
     acme:
       email: contact@iaproject.fr
-      storage: /opt/traefik/acme.json
-      dnsChallenge:
-        provider: ovh
-        delayBeforeCheck: "0"
-        resolvers:
-          - "1.1.1.1:53"
-          - "8.8.8.8:53"
-      caServer: "https://acme-v02.api.letsencrypt.org/directory"
-      keyType: "EC384"
+      storage: /letsencrypt/acme.json
+      tlsChallenge: {}
 
 # Configuration des providers
 providers:
   docker:
     endpoint: "unix:///var/run/docker.sock"
     exposedByDefault: false
-    network: traefik-public
+    network: proxy
   file:
     directory: "/etc/traefik/dynamic"
     watch: true
@@ -46,20 +42,7 @@ providers:
 api:
   dashboard: true
   insecure: false
-  debug: false
-
-# Configuration des middlewares
-http:
-  middlewares:
-    secure-headers:
-      headers:
-        browserXssFilter: true
-        contentTypeNosniff: true
-        frameDeny: true
-        sslRedirect: true
-        stsIncludeSubdomains: true
-        stsPreload: true
-        stsSeconds: 31536000
+  debug: true
 
 # Configuration des logs
 log:

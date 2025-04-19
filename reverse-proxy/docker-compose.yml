@@ -7,8 +7,6 @@ services:
     restart: unless-stopped
     security_opt:
       - no-new-privileges:true
-    networks:
-      - traefik-public
     ports:
       - "80:80"
       - "443:443"
@@ -17,20 +15,29 @@ services:
       - /etc/localtime:/etc/localtime:ro
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - ./traefik.yml:/etc/traefik/traefik.yml:ro
-      - ./acme.json:/opt/traefik/acme.json
+      - ./acme.json:/letsencrypt/acme.json
       - ./dynamic:/etc/traefik/dynamic
     env_file:
       - ../.env
     environment:
       - TZ=Europe/Paris
+      - OVH_ENDPOINT
+      - OVH_APPLICATION_KEY
+      - OVH_APPLICATION_SECRET
+      - OVH_CONSUMER_KEY
+      - OVH_DNS_ZONE
+      - OVH_DNS_SUBDOMAIN
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.traefik.entrypoints=websecure"
-      - "traefik.http.routers.traefik.rule=Host(`iaproject.fr`)"
-      - "traefik.http.routers.traefik.tls=true"
-      - "traefik.http.routers.traefik.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.traefik.rule=Host(`traefik.iaproject.fr`) && (PathPrefix(`/dashboard`) || PathPrefix(`/api`))"
       - "traefik.http.routers.traefik.service=api@internal"
+      - "traefik.http.routers.traefik.middlewares=auth-basic"
+      - "traefik.http.middlewares.auth-basic.basicauth.users=admin:$$apr1$$ruca84Hq$$mbjdMZBAG.KWn7vfN/SNK/"
+      - "traefik.http.routers.traefik.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.traefik.tls.domains[0].main=iaproject.fr"
+      - "traefik.http.routers.traefik.tls.domains[0].sans=*.iaproject.fr"
 
 networks:
-  traefik-public:
-    name: traefik-public
+  proxy:
+    external: true
