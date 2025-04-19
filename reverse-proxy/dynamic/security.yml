@@ -4,13 +4,13 @@ http:
       entryPoints:
         - "websecure"
       middlewares:
-        - "secureHeaders@file"
-        - "rateLimit@file"
-        - "ipWhitelist@file"
+        - "secure-headers@file"
+        - "rate-limit@file"
+        - "ip-whitelist@file"
       service: "api@internal"
       rule: "Host(`traefik.iaproject.fr`)"
       tls:
-        certResolver: "letsencrypt"
+        options: "default"
 
   middlewares:
     secure-headers:

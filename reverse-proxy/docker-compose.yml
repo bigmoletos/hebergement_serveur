@@ -34,9 +34,6 @@ services:
       - "traefik.http.routers.traefik.service=api@internal"
       - "traefik.http.routers.traefik.middlewares=auth-basic"
       - "traefik.http.middlewares.auth-basic.basicauth.users=admin:$$apr1$$ruca84Hq$$mbjdMZBAG.KWn7vfN/SNK/"
-      - "traefik.http.routers.traefik.tls.certresolver=letsencrypt"
-      - "traefik.http.routers.traefik.tls.domains[0].main=iaproject.fr"
-      - "traefik.http.routers.traefik.tls.domains[0].sans=*.iaproject.fr"
 
 networks:
   proxy:

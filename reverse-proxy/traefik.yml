@@ -15,8 +15,7 @@ entryPoints:
   websecure:
     address: ":443"
     http:
-      tls:
-        certResolver: letsencrypt
+      tls: {}
   ssh:
     address: ":2222"
 
@@ -26,7 +25,8 @@ certificatesResolvers:
     acme:
       email: contact@iaproject.fr
       storage: /letsencrypt/acme.json
-      tlsChallenge: {}
+      httpChallenge:
+        entryPoint: web
 
 # Configuration des providers
 providers:

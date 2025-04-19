@@ -7,11 +7,10 @@ http:
       service: api@internal
       middlewares:
         - auth-basic
-        - secure-headers
-        - rate-limit
-        - ip-whitelist
+        - secure-headers@file
+        - rate-limit@file
+        - ip-whitelist@file
       tls:
-        certResolver: letsencrypt
         options: default
 
   middlewares:
@@ -19,11 +18,6 @@ http:
       basicAuth:
         users:
           - "admin:$apr1$ruca84Hq$mbjdMZBAG.KWn7vfN/SNK/"  # À remplacer par votre hash généré avec htpasswd -nb admin votreMotDePasse
-
-    # Utilisation des middlewares définis dans security.yml
-    secure-headers: {}
-    rate-limit: {}
-    ip-whitelist: {}
 
 tls:
   options:
