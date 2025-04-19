@@ -6,18 +6,12 @@ http:
       rule: "Host(`traefik.iaproject.fr`)"
       service: api@internal
       middlewares:
-        - auth-basic
+        - auth-basic@file
         - secure-headers@file
         - rate-limit@file
         - ip-whitelist@file
       tls:
         options: default
-
-  middlewares:
-    auth-basic:
-      basicAuth:
-        users:
-          - "admin:$apr1$ruca84Hq$mbjdMZBAG.KWn7vfN/SNK/"  # À remplacer par votre hash généré avec htpasswd -nb admin votreMotDePasse
 
 tls:
   options:

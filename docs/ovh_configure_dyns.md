@@ -211,3 +211,168 @@ traefik.iaproject.fr:       TTL: 0     Type: A    Cible: IP_FIXE
    - Vérifier que l'enregistrement existe dans la zone DNS
    - Attendre la propagation DNS (jusqu'à 24h)
    - Vérifier que l'IP cible est correcte
+
+## Configuration finale et bonnes pratiques
+
+### Configuration optimale pour Traefik
+
+#### 1. Structure du fichier docker-compose.yml
+```yaml
+# version: '3'
+
+services:
+  traefik:
+    image: traefik:v2.10
+    container_name: traefik
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    ports:
+      - "80:80"
+      - "443:443"
+      - "2222:22"  # Port 2222 externe vers 22 interne
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./traefik.yml:/etc/traefik/traefik.yml:ro
+      - ./acme.json:/letsencrypt/acme.json
+      - ./dynamic:/etc/traefik/dynamic
+    env_file:
+      - ../.env
+    environment:
+      - TZ=Europe/Paris
+      - OVH_ENDPOINT
+      - OVH_APPLICATION_KEY
+      - OVH_APPLICATION_SECRET
+      - OVH_CONSUMER_KEY
+      - OVH_DNS_ZONE
+      - OVH_DNS_SUBDOMAIN
+      - TRAEFIK_BASIC_AUTH=${TRAEFIK_BASIC_AUTH}
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.traefik.entrypoints=websecure"
+      - "traefik.http.routers.traefik.rule=Host(`traefik.iaproject.fr`) && (PathPrefix(`/dashboard`) || PathPrefix(`/api`))"
+      - "traefik.http.routers.traefik.service=api@internal"
+      - "traefik.http.routers.traefik.middlewares=auth-basic"
+      - "traefik.http.middlewares.auth-basic.basicauth.users=${TRAEFIK_BASIC_AUTH}"
+
+networks:
+  proxy:
+    external: true
+```
+
+#### 2. Configuration traefik.yml
+```yaml
+# Configuration globale
+global:
+  checkNewVersion: true
+  sendAnonymousUsage: false
+
+# Configuration des entrées
+entryPoints:
+  web:
+    address: ":80"
+    http:
+      redirections:
+        entryPoint:
+          to: websecure
+          scheme: https
+  websecure:
+    address: ":443"
+    http:
+      tls: {}  # Pour certificat auto-signé temporaire
+      # Pour Let's Encrypt, utiliser:
+      # tls:
+      #   certResolver: letsencrypt
+  ssh:
+    address: ":2222"
+
+# Configuration des certificats
+certificatesResolvers:
+  letsencrypt:
+    acme:
+      email: contact@iaproject.fr
+      storage: /letsencrypt/acme.json
+      httpChallenge:
+        entryPoint: web
+
+# Configuration des providers
+providers:
+  docker:
+    endpoint: "unix:///var/run/docker.sock"
+    exposedByDefault: false
+    network: proxy
+  file:
+    directory: "/etc/traefik/dynamic"
+    watch: true
+
+# Configuration du dashboard
+api:
+  dashboard: true
+  insecure: true  # Mettre à false en production
+  debug: true
+
+# Configuration des logs
+log:
+  level: DEBUG  # INFO en production
+  format: common
+```
+
+### Génération du hash pour l'authentification basique
+
+1. **Utilisation d'un conteneur Apache temporaire** :
+   ```bash
+   docker run --rm httpd:2.4-alpine htpasswd -nb admin votremotdepasse
+   ```
+
+2. **Pour échapper les caractères $ dans docker-compose** :
+   ```bash
+   echo 'admin:$(docker run --rm httpd:2.4-alpine htpasswd -nb admin votremotdepasse | cut -d ":" -f 2)' | sed -e s/\\$/\\$\\$/g
+   ```
+
+3. **Configuration dans le fichier .env** :
+   ```
+   # Identifiants Traefik
+   TRAEFIK_BASIC_AUTH=admin:$$apr1$$votrehashici
+   ```
+   Note: Les $ doivent être doublés dans le fichier .env pour échapper ce caractère spécial.
+
+### Gestion des certificats Let's Encrypt
+
+1. **Limites de Let's Encrypt** :
+   - Maximum 5 certificats par domaine toutes les 7 jours
+   - Message d'erreur typique: `too many certificates (5) already issued for this exact set of domains in the last 168h0m0s`
+
+2. **Solutions temporaires** :
+   - Utiliser un certificat auto-signé comme montré dans les configurations ci-dessus
+   - Configurer le mode insecure pour les tests (api.insecure: true)
+
+3. **Réactiver Let's Encrypt** :
+   - Dans traefik.yml :
+     ```yaml
+     websecure:
+       address: ":443"
+       http:
+         tls:
+           certResolver: letsencrypt
+     ```
+   - Dans docker-compose.yml :
+     ```yaml
+     - "traefik.http.routers.traefik.tls.certResolver=letsencrypt"
+     ```
+   - Dans les fichiers dynamic : vérifier qu'aucun n'utilise certResolver
+
+### Middlewares et Configuration dynamique
+
+1. **Organisation recommandée** :
+   - security.yml : pour les middlewares de sécurité réutilisables
+   - dashboard.yml : pour la configuration spécifique du dashboard
+
+2. **Référence correcte des middlewares** :
+   - Format: `middleware-name@provider`
+   - Exemple: `secure-headers@file` pour un middleware défini dans un fichier
+
+3. **Résolution des problèmes courants** :
+   - Incohérence de nommage : vérifier que les noms des middlewares sont cohérents entre les références
+   - Middlewares redondants : éviter de définir le même middleware à plusieurs endroits
+   - Erreur `middleware not found` : vérifier le nom et le provider du middleware

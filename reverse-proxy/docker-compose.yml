@@ -32,8 +32,7 @@ services:
       - "traefik.http.routers.traefik.entrypoints=websecure"
       - "traefik.http.routers.traefik.rule=Host(`traefik.iaproject.fr`) && (PathPrefix(`/dashboard`) || PathPrefix(`/api`))"
       - "traefik.http.routers.traefik.service=api@internal"
-      - "traefik.http.routers.traefik.middlewares=auth-basic"
-      - "traefik.http.middlewares.auth-basic.basicauth.users=admin:$$apr1$$ruca84Hq$$mbjdMZBAG.KWn7vfN/SNK/"
+      - "traefik.http.routers.traefik.middlewares=auth-basic@file"
 
 networks:
   proxy:

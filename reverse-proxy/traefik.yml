@@ -41,7 +41,7 @@ providers:
 # Configuration du dashboard
 api:
   dashboard: true
-  insecure: false
+  insecure: true
   debug: true
 
 # Configuration des logs
