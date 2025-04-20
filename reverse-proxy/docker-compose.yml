@@ -1,10 +1,27 @@
 # version: '3'
 
 services:
+  # Service d'initialisation
+  init:
+    image: alpine:latest
+    volumes:
+      - ./traefik-init.sh:/init.sh
+      - ./dynamic:/app/dynamic
+      - ./acme.json:/app/acme.json
+    env_file:
+      - ../.env
+    environment:
+      - TRAEFIK_USER
+      - TRAEFIK_PASSWORD
+    working_dir: /app
+    command: sh /init.sh
+
   traefik:
-    image: traefik:v2.10
+    image: traefik:v3.0
     container_name: traefik
     restart: unless-stopped
+    depends_on:
+      - init
     security_opt:
       - no-new-privileges:true
     ports:
@@ -27,6 +44,8 @@ services:
       - OVH_CONSUMER_KEY
       - OVH_DNS_ZONE
       - OVH_DNS_SUBDOMAIN
+      - TRAEFIK_USER
+      - TRAEFIK_PASSWORD
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.traefik.entrypoints=websecure"

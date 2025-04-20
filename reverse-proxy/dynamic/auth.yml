@@ -2,5 +2,5 @@ http:
   middlewares:
     auth-basic:
       basicAuth:
-        users:
-          - "admin:$apr1$pDRai/xA$tBmbCZ2l0DGlihp80TMhc."
+        realm: "Traefik Dashboard"
+        usersFile: "/etc/traefik/dynamic/users.txt"
