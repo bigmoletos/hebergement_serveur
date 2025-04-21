@@ -1,20 +1,24 @@
-# version: '3'
-
 services:
   # Service d'initialisation
   init:
     image: alpine:latest
     volumes:
       - ./traefik-init.sh:/init.sh
+      - ./entrypoint.sh:/entrypoint.sh
       - ./dynamic:/app/dynamic
       - ./acme.json:/app/acme.json
+      - ../.env:/app/.env
     env_file:
       - ../.env
     environment:
-      - TRAEFIK_USER
+      - TRAEFIK_USERNAME
       - TRAEFIK_PASSWORD
     working_dir: /app
-    command: sh /init.sh
+    entrypoint: ["/entrypoint.sh"]
+    # command: sh /entrypoint.sh
+    # command: sh /init.sh
+    # command: sh -c "chmod +x /init.sh && /init.sh"
+
 
   traefik:
     image: traefik:v3.0
@@ -44,7 +48,7 @@ services:
       - OVH_CONSUMER_KEY
       - OVH_DNS_ZONE
       - OVH_DNS_SUBDOMAIN
-      - TRAEFIK_USER
+      - TRAEFIK_USERNAME
       - TRAEFIK_PASSWORD
     labels:
       - "traefik.enable=true"

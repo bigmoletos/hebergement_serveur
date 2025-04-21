@@ -1,6 +1,10 @@
 http:
   middlewares:
     auth-basic:
-      basicAuth:
-        realm: "Traefik Dashboard"
-        usersFile: "/etc/traefik/dynamic/users.txt"
+        basicAuth:
+          users:
+            - "$USER:$(htpasswd -nb -B "$USER" "$PASS" | cut -d ":" -f 2)"
+      # basicAuth:
+      #   realm: "Traefik Dashboard"
+      #   usersFile: "/etc/traefik/dynamic/users.txt"
+
