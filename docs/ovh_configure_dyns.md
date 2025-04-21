@@ -71,7 +71,13 @@ OVH_DNS_SUBDOMAIN=airquality
 DYNDNS_USERNAME=iaproject.fr-identdns
 DYNDNS_PASSWORD=votre_password
 DYNDNS_UPDATE_INTERVAL=300
+
+# Identifiants Traefik (IMPORTANT: NE PAS mettre de guillemets)
+TRAEFIK_USERNAME=admin
+TRAEFIK_API_PASSWORD=motdepasse
 ```
+
+⚠️ **IMPORTANT**: Ne jamais mettre de guillemets simples (`'`) ou doubles (`"`) autour des valeurs dans le fichier `.env`. Cela peut causer des problèmes d'authentification, notamment avec Traefik.
 
 ## Configuration des enregistrements DNS
 

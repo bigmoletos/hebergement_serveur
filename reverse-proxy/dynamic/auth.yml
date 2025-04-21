@@ -1,10 +1,18 @@
 http:
   middlewares:
     auth-basic:
-        basicAuth:
-          users:
-            - "$USER:$(htpasswd -nb -B "$USER" "$PASS" | cut -d ":" -f 2)"
-      # basicAuth:
-      #   realm: "Traefik Dashboard"
-      #   usersFile: "/etc/traefik/dynamic/users.txt"
+        # basicAuth:
+        #   users:
+        #     - "$USER:$(htpasswd -nb -B "$USER" "$PASS" | cut -d ":" -f 2)"
+      basicAuth:
+        realm: "Traefik Dashboard"
+        usersFile: "/etc/traefik/dynamic/users.txt"
+
+certificatesResolvers:
+  letsencrypt:
+    acme:
+      email: admin@iaproject.fr
+      storage: /letsencrypt/acme.json  # Ce chemin doit correspondre au volume
+      httpChallenge:
+        entryPoint: web
 

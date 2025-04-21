@@ -223,6 +223,7 @@ Subsystem sftp /usr/lib/openssh/sftp-server
 ## 2025-04-13 : Problèmes avec ddclient
 
 ### Problème 1 : Erreur de chemin lors de la copie de configuration
+**Symptôme** :
 ```bash
 Error: cp: cannot stat 'hebergement_serveur/scripts/ddclient.conf': No such file or directory
 ```
@@ -230,59 +231,59 @@ Error: cp: cannot stat 'hebergement_serveur/scripts/ddclient.conf': No such file
 **Solution** :
 1. Se placer dans le bon répertoire
 2. Utiliser le chemin relatif correct :
-```bash
-cd /hebergement_serveur
-sudo cp scripts/ddclient.conf /etc/ddclient.conf
-```
+   ```bash
+   cd /hebergement_serveur
+   sudo cp scripts/ddclient.conf /etc/ddclient.conf
+   ```
 
 ### Problème 2 : Permissions incorrectes
 **Symptômes** :
-- Fichiers .sh avec permissions 777 (trop permissives)
-- ddclient.conf avec permissions 644 (trop permissives pour les mots de passe)
+- Fichiers `.sh` avec permissions 777 (trop permissives)
+- `ddclient.conf` avec permissions 644 (trop permissives pour les mots de passe)
 
 **Solution** :
 1. Ajustement des permissions des fichiers de configuration :
-```bash
-sudo chmod 600 /etc/ddclient.conf
-sudo chown root:root /etc/ddclient.conf
-```
+   ```bash
+   sudo chmod 600 /etc/ddclient.conf
+   sudo chown root:root /etc/ddclient.conf
+   ```
 
 2. Ajustement des permissions des scripts :
-```bash
-sudo chmod 644 scripts/*.py
-sudo chmod 644 scripts/*.conf
-sudo chmod 755 scripts/*.sh
-```
+   ```bash
+   sudo chmod 644 scripts/*.py
+   sudo chmod 644 scripts/*.conf
+   sudo chmod 755 scripts/*.sh
+   ```
 
 ### Problème 3 : Erreur d'authentification ddclient
-**Symptômes** :
+**Symptôme** :
 ```
 FAILED: {"class":"Client::Unauthorized","message":"..."}
 ```
 
 **Solution** :
 1. Configuration correcte dans `/etc/ddclient.conf` :
-```conf
-# Configuration générale
-daemon=300
-syslog=yes
-pid=/var/run/ddclient.pid
-ssl=yes
+   ```conf
+   # Configuration générale
+   daemon=300
+   syslog=yes
+   pid=/var/run/ddclient.pid
+   ssl=yes
 
-# Configuration OVH
-protocol=dyndns2
-use=web
-server=www.ovh.com
-login=iaproject.fr-identdns
-password='+-*/2000Dns/*-+'
-zone=iaproject.fr
-airquality.iaproject.fr
-```
+   # Configuration OVH
+   protocol=dyndns2
+   use=web
+   server=www.ovh.com
+   login=iaproject.fr-identdns
+   password='+-*/2000Dns/*-+'
+   zone=iaproject.fr
+   airquality.iaproject.fr
+   ```
 
 2. Redémarrage du service :
-```bash
-sudo systemctl restart ddclient
-```
+   ```bash
+   sudo systemctl restart ddclient
+   ```
 
 ### Vérification
 ```bash
@@ -360,3 +361,45 @@ sudo journalctl -u ddclient -f
 - Utiliser le nom complet de l'entrée GRUB
 - Vérifier la version du noyau après redémarrage
 - En cas de problème, restaurer la sauvegarde de GRUB
+
+## 7. Problèmes d'authentification Traefik
+
+### 7.1 Erreur d'authentification avec BasicAuth
+**Symptôme** :
+```
+Authentication failed middlewareName=auth-basic@file middlewareType=BasicAuth
+```
+
+**Causes possibles** :
+1. Format incorrect dans le fichier `users.txt`
+2. Présence de guillemets dans les variables d'environnement
+3. Configuration incorrecte du middleware BasicAuth
+
+**Solutions appliquées** :
+1. Vérification du format de `users.txt` :
+   ```bash
+   docker-compose exec traefik cat /etc/traefik/dynamic/users.txt
+   ```
+   Format correct : `admin:$apr1$...` (sans guillemets autour du nom d'utilisateur)
+
+2. Correction des variables d'environnement :
+   ```
+   # Incorrect (avec guillemets)
+   TRAEFIK_USERNAME='admin'
+   TRAEFIK_API_PASSWORD="motdepasse"
+
+   # Correct (sans guillemets)
+   TRAEFIK_USERNAME=admin
+   TRAEFIK_API_PASSWORD=motdepasse
+   ```
+
+3. Vérification de la génération du hash :
+   ```bash
+   htpasswd -bn admin motdepasse
+   ```
+
+### 7.2 Points importants pour le fichier .env
+- Ne JAMAIS utiliser de guillemets simples ou doubles autour des valeurs
+- Les guillemets sont interprétés comme faisant partie de la valeur
+- Cela cause des problèmes d'authentification et d'autres erreurs subtiles
+- Toujours vérifier le format final des fichiers générés
