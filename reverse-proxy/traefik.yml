@@ -15,7 +15,8 @@ entryPoints:
   websecure:
     address: ":443"
     http:
-      tls: {}
+      tls:
+        certResolver: letsencrypt
   ssh:
     address: ":2222"
 
