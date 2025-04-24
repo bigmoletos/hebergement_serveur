@@ -1,0 +1,186 @@
+# =============================================================================
+# Playbook de configuration de la structure multi-applications
+# =============================================================================
+#
+# Description:
+#   Ce playbook configure la structure de base pour héberger plusieurs applications
+#   sur un serveur, incluant les répertoires pour chaque application, Traefik,
+#   le monitoring et l'infrastructure CI/CD.
+#
+# Variables:
+#   working_dir: Répertoire de base pour toutes les applications
+#   base_apps_dir: Répertoire contenant toutes les applications
+#   apps: Liste des applications à configurer avec leurs sous-répertoires
+#   traefik_dir: Répertoire pour la configuration de Traefik
+#   monitoring_dir: Répertoire pour les outils de monitoring
+#   ci_cd_dir: Répertoire pour Jenkins et les outils CI/CD
+#
+# Structure créée:
+#   /applications/
+#     ├── app1/
+#     │   ├── config/
+#     │   ├── data/
+#     │   ├── logs/
+#     │   ├── docker/
+#     │   └── scripts/
+#     └── app2/...
+#   /traefik/
+#   /monitoring/
+#   /ci-cd/
+#
+# Tags:
+#   - setup
+#   - infrastructure
+# =============================================================================
+
+---
+- name: Setup Multi-Applications Structure
+  hosts: docker
+  become: true
+  vars:
+    base_apps_dir: "{{ working_dir }}/applications"
+    apps:
+      - name: airquality
+        subdirs:
+          - config
+          - data
+          - logs
+          - docker
+          - scripts
+      - name: prediction-vent
+        subdirs:
+          - config
+          - data
+          - logs
+          - docker
+          - scripts
+      - name: api-meteo
+        subdirs:
+          - config
+          - data
+          - logs
+          - docker
+          - scripts
+    traefik_dir: "{{ working_dir }}/traefik"
+    monitoring_dir: "{{ working_dir }}/monitoring"
+    ci_cd_dir: "{{ working_dir }}/ci-cd"
+
+  tasks:
+    - name: Create base applications directory
+      file:
+        path: "{{ base_apps_dir }}"
+        state: directory
+        mode: '0755'
+        owner: user
+        group: user
+
+    - name: Create application directories
+      file:
+        path: "{{ base_apps_dir }}/{{ item.0.name }}/{{ item.1 }}"
+        state: directory
+        mode: '0755'
+        owner: user
+        group: user
+      with_subelements:
+        - "{{ apps }}"
+        - subdirs
+
+    - name: Create Traefik directory structure
+      file:
+        path: "{{ traefik_dir }}/{{ item }}"
+        state: directory
+        mode: '0755'
+        owner: user
+        group: user
+      with_items:
+        - config
+        - certs
+        - logs
+        - rules
+
+    - name: Create monitoring directory structure
+      file:
+        path: "{{ monitoring_dir }}/{{ item }}"
+        state: directory
+        mode: '0755'
+        owner: user
+        group: user
+      with_items:
+        - prometheus
+        - grafana
+        - alertmanager
+        - logs
+
+    - name: Create CI/CD directory structure
+      file:
+        path: "{{ ci_cd_dir }}/{{ item }}"
+        state: directory
+        mode: '0755'
+        owner: user
+        group: user
+      with_items:
+        - jenkins
+        - scripts
+        - config
+        - logs
+
+    - name: Create docker network for Traefik
+      community.docker.docker_network:
+        name: traefik-public
+        driver: bridge
+        state: present
+
+    - name: Create .env files for each application
+      copy:
+        dest: "{{ base_apps_dir }}/{{ item.name }}/.env"
+        content: |
+          # Configuration de l'application {{ item.name }}
+          APP_NAME={{ item.name }}
+          TRAEFIK_NETWORK=traefik-public
+          DOMAIN=iaproject.fr
+          SUBDOMAIN={{ item.name }}
+
+          # Variables spécifiques à l'application
+          PYTHON_ENV=production
+          FLASK_DEBUG=0
+
+          # Ports des services
+          APP_PORT=8000
+
+          # Logging
+          LOG_LEVEL=INFO
+          LOG_PATH={{ base_apps_dir }}/{{ item.name }}/logs/app.log
+        mode: '0600'
+        owner: user
+        group: user
+      loop: "{{ apps }}"
+
+    - name: Create README for each application
+      copy:
+        dest: "{{ base_apps_dir }}/{{ item.name }}/README.md"
+        content: |
+          # {{ item.name | capitalize }}
+
+          ## Structure des répertoires
+
+          - `config/` : Fichiers de configuration
+          - `data/` : Données de l'application
+          - `logs/` : Logs de l'application
+          - `docker/` : Fichiers Docker (docker-compose, Dockerfile)
+          - `scripts/` : Scripts utilitaires
+
+          ## Déploiement
+
+          1. Configurer le fichier `.env`
+          2. Lancer l'application : `docker-compose up -d`
+          3. Vérifier les logs : `docker-compose logs -f`
+
+          ## URLs
+
+          - Application : https://{{ item.name }}.iaproject.fr
+          - Monitoring : https://{{ item.name }}.iaproject.fr/metrics
+          - Health check : https://{{ item.name }}.iaproject.fr/health
+        mode: '0644'
+        owner: user
+        group: user
+      loop: "{{ apps }}"

@@ -32,6 +32,9 @@ services:
       - "80:80"
       - "443:443"
       - "2222:22"  # Port 2222 externe vers 22 interne
+    networks:
+      - proxy
+      - traefik-public
     volumes:
       - /etc/localtime:/etc/localtime:ro
       - /var/run/docker.sock:/var/run/docker.sock:ro
@@ -60,4 +63,6 @@ services:
 
 networks:
   proxy:
+    external: true
+  traefik-public:
     external: true

@@ -4,16 +4,14 @@ Ce guide détaille les étapes pour configurer et tester un service DynDNS en ut
 
 ## Table des matières
 1. [Prérequis](#prérequis)
-2. [Première étape : Génération d'un nouveau token OVH](#première-étape-génération-dun-nouveau-token-ovh)
-3. [Création des clés API OVH](#création-des-clés-api-ovh)
-4. [Configuration des variables d'environnement](#configuration-des-variables-denvironnement)
-5. [Configuration des enregistrements DNS](#configuration-des-enregistrements-dns)
+2. [Configuration manuelle des DNS via l'interface OVH](#configuration-manuelle-des-dns-via-linterface-ovh)
+3. [Première étape : Génération d'un nouveau token OVH](#première-étape-génération-dun-nouveau-token-ovh)
+4. [Création des clés API OVH](#création-des-clés-api-ovh)
+5. [Configuration des variables d'environnement](#configuration-des-variables-denvironnement)
 6. [Test de l'API](#test-de-lapi)
 7. [Gestion des permissions OVH API](#gestion-des-permissions-ovh-api)
-8. [Gestion des TTL DNS](#gestion-des-ttl-dns)
-9. [Configuration Traefik avec OVH](#configuration-traefik-avec-ovh)
-10. [Configuration du sous-domaine Traefik](#configuration-du-sous-domaine-traefik)
-11. [Configuration du challenge ACME DNS avec OVH](#configuration-du-challenge-acme-dns-avec-ovh)
+8. [Configuration Traefik avec OVH](#configuration-traefik-avec-ovh)
+9. [Configuration du challenge ACME DNS avec OVH](#configuration-du-challenge-acme-dns-avec-ovh)
 
 ## Prérequis
 
@@ -24,6 +22,91 @@ Ce guide détaille les étapes pour configurer et tester un service DynDNS en ut
   ```bash
   pip install python-dotenv requests ovh
   ```
+
+## Configuration manuelle des DNS via l'interface OVH
+
+### Accès à l'interface
+1. Connectez-vous à l'espace client OVH : https://www.ovh.com/manager/
+2. Allez dans la section "Domaines"
+3. Sélectionnez votre domaine "iaproject.fr"
+4. Cliquez sur l'onglet "Zone DNS"
+
+### Configuration des enregistrements
+
+#### Applications Métier
+| Type | Sous-domaine     | TTL  | Cible        | Description                    |
+|------|------------------|------|--------------|--------------------------------|
+| A    | airquality      | 60   | 91.173.110.4 | Application qualité de l'air   |
+| A    | prediction-vent | 60   | 91.173.110.4 | Service de prédiction du vent |
+| A    | api-meteo      | 60   | 91.173.110.4 | API météo                     |
+
+#### Services d'Infrastructure
+| Type | Sous-domaine    | TTL  | Cible        | Description                    |
+|------|----------------|------|--------------|--------------------------------|
+| A    | portainer     | 60   | 91.173.110.4 | Interface de gestion Docker    |
+| A    | jenkins       | 60   | 91.173.110.4 | Serveur CI/CD                  |
+| A    | vault         | 60   | 91.173.110.4 | Gestionnaire de secrets        |
+| A    | traefik       | 60   | 91.173.110.4 | Dashboard Traefik             |
+
+#### Services de Monitoring
+| Type | Sous-domaine    | TTL  | Cible        | Description                    |
+|------|----------------|------|--------------|--------------------------------|
+| A    | grafana       | 60   | 91.173.110.4 | Visualisation des métriques    |
+| A    | prometheus    | 60   | 91.173.110.4 | Collecte des métriques         |
+
+### Procédure de configuration manuelle
+
+1. **Pour chaque enregistrement**:
+   - Cliquez sur "Ajouter un enregistrement"
+   - Sélectionnez "A"
+   - Remplissez les champs :
+     * Sous-domaine : nom du service (ex: airquality)
+     * TTL : 60
+     * Cible : 91.173.110.4
+   - Cliquez sur "Valider"
+
+2. **Après avoir ajouté tous les enregistrements**:
+   - Attendez quelques minutes
+   - Vérifiez la propagation avec la commande :
+     ```bash
+     for subdomain in airquality prediction-vent api-meteo portainer jenkins vault traefik grafana prometheus; do
+         echo "Test de $subdomain.iaproject.fr:"
+         dig $subdomain.iaproject.fr +short
+     done
+     ```
+
+### Vérification des enregistrements
+
+Pour vérifier qu'un enregistrement est correctement configuré :
+
+```bash
+# Vérification rapide
+dig @ns104.ovh.net sous-domaine.iaproject.fr
+
+# Vérification détaillée
+dig sous-domaine.iaproject.fr
+
+# Vérification du temps de propagation
+dig +trace sous-domaine.iaproject.fr
+```
+
+### Notes importantes
+
+1. **TTL (Time To Live)**:
+   - Utilisez 60 secondes pour tous les enregistrements pour permettre des changements rapides
+   - Une fois la configuration stabilisée, vous pourrez augmenter le TTL à 3600 (1 heure)
+
+2. **Propagation**:
+   - La propagation peut prendre jusqu'à 24 heures
+   - Généralement, les changements sont visibles en 5-15 minutes
+   - Utilisez les commandes dig pour suivre la propagation
+
+3. **Sécurité**:
+   - Vérifiez que votre pare-feu autorise les connexions entrantes sur les ports nécessaires
+   - Ports à ouvrir :
+     * 80 (HTTP)
+     * 443 (HTTPS)
+     * 2222 (SSH personnalisé)
 
 ## Première étape : Génération d'un nouveau token OVH
 
@@ -78,42 +161,6 @@ TRAEFIK_API_PASSWORD=motdepasse
 ```
 
 ⚠️ **IMPORTANT**: Ne jamais mettre de guillemets simples (`'`) ou doubles (`"`) autour des valeurs dans le fichier `.env`. Cela peut causer des problèmes d'authentification, notamment avec Traefik.
-
-## Configuration des enregistrements DNS
-
-### Configuration actuelle
-
-Voici les enregistrements DNS actuellement configurés :
-
-```yaml
-# Enregistrement pour le service airquality
-- Type: A
-  Sous-domaine: airquality
-  ID: 5360565253
-  TTL: 60
-  Cible: IP_DYNAMIQUE
-
-# Enregistrement pour Traefik
-- Type: A
-  Sous-domaine: traefik
-  TTL: 0
-  Cible: IP_FIXE
-```
-
-### Mise à jour des enregistrements
-
-Pour mettre à jour un enregistrement via l'API :
-
-```bash
-curl -X PUT "https://eu.api.ovh.com/1.0/domain/zone/iaproject.fr/record/5360565253" \
-     -H "X-Ovh-Application: $OVH_APPLICATION_KEY" \
-     -H "X-Ovh-Consumer: $OVH_CONSUMER_KEY" \
-     -H "Content-Type: application/json" \
-     -d '{
-       "ttl": 60,
-       "target": "NOUVELLE_IP"
-     }'
-```
 
 ## Configuration Traefik avec OVH
 
@@ -172,6 +219,52 @@ airquality.iaproject.fr:    TTL: 60    Type: A    Cible: IP_DYNAMIQUE
 # Sous-domaines statiques
 traefik.iaproject.fr:       TTL: 0     Type: A    Cible: IP_FIXE
 ```
+
+## Configuration DNS
+pour cela on peux lancer depuis le serveur le script
+
+```bash
+# 1. Se placer dans le bon répertoire
+cd /hebergement_serveur
+
+# 2. Vérifier que les variables d'environnement sont définies
+cat .env | grep OVH
+# Devrait afficher :
+# OVH_APPLICATION_KEY=xxx
+# OVH_APPLICATION_SECRET=xxx
+# OVH_CONSUMER_KEY=xxx
+# OVH_DNS_ZONE=iaproject.fr
+
+# 3. Lancer le script
+./configure_ovh_dns.sh
+
+# Vérifier que les zones ont été créées
+for subdomain in airquality prediction-vent api-meteo portainer jenkins vault traefik grafana prometheus; do
+    dig ${subdomain}.iaproject.fr
+done
+
+```
+
+### On devrait avoir dans les DNS ZONE OVH les Applications suivantes:
+| Type | Sous-domaine     | Destination | Description                    |
+|------|------------------|-------------|--------------------------------|
+| A    | airquality      | IP_SERVEUR  | Application qualité de l'air   |
+| A    | prediction-vent | IP_SERVEUR  | Service de prédiction du vent |
+| A    | api-meteo      | IP_SERVEUR  | API météo                     |
+
+### Services de Gestion
+| Type | Sous-domaine    | Destination | Description                    |
+|------|----------------|-------------|--------------------------------|
+| A    | portainer     | IP_SERVEUR  | Interface de gestion Docker    |
+| A    | jenkins       | IP_SERVEUR  | Serveur CI/CD                  |
+| A    | vault         | IP_SERVEUR  | Gestionnaire de secrets        |
+| A    | traefik       | IP_SERVEUR  | Dashboard Traefik             |
+
+### Monitoring
+| Type | Sous-domaine    | Destination | Description                    |
+|------|----------------|-------------|--------------------------------|
+| A    | grafana       | IP_SERVEUR  | Visualisation des métriques    |
+| A    | prometheus    | IP_SERVEUR  | Collecte des métriques         |
 
 ## Dépannage
 
@@ -382,3 +475,88 @@ log:
    - Incohérence de nommage : vérifier que les noms des middlewares sont cohérents entre les références
    - Middlewares redondants : éviter de définir le même middleware à plusieurs endroits
    - Erreur `middleware not found` : vérifier le nom et le provider du middleware
+
+## Configuration manuelle des DNS via l'interface OVH
+
+### Accès à l'interface
+1. Connectez-vous à l'espace client OVH : https://www.ovh.com/manager/
+2. Allez dans la section "Domaines"
+3. Sélectionnez votre domaine "iaproject.fr"
+4. Cliquez sur l'onglet "Zone DNS"
+
+### Configuration des enregistrements
+
+#### Applications Métier
+| Type | Sous-domaine     | TTL  | Cible        | Description                    |
+|------|------------------|------|--------------|--------------------------------|
+| A    | airquality      | 60   | 91.173.110.4 | Application qualité de l'air   |
+| A    | prediction-vent | 60   | 91.173.110.4 | Service de prédiction du vent |
+| A    | api-meteo      | 60   | 91.173.110.4 | API météo                     |
+
+#### Services d'Infrastructure
+| Type | Sous-domaine    | TTL  | Cible        | Description                    |
+|------|----------------|------|--------------|--------------------------------|
+| A    | portainer     | 60   | 91.173.110.4 | Interface de gestion Docker    |
+| A    | jenkins       | 60   | 91.173.110.4 | Serveur CI/CD                  |
+| A    | vault         | 60   | 91.173.110.4 | Gestionnaire de secrets        |
+| A    | traefik       | 60   | 91.173.110.4 | Dashboard Traefik             |
+
+#### Services de Monitoring
+| Type | Sous-domaine    | TTL  | Cible        | Description                    |
+|------|----------------|------|--------------|--------------------------------|
+| A    | grafana       | 60   | 91.173.110.4 | Visualisation des métriques    |
+| A    | prometheus    | 60   | 91.173.110.4 | Collecte des métriques         |
+
+### Procédure de configuration manuelle
+
+1. **Pour chaque enregistrement**:
+   - Cliquez sur "Ajouter un enregistrement"
+   - Sélectionnez "A"
+   - Remplissez les champs :
+     * Sous-domaine : nom du service (ex: airquality)
+     * TTL : 60
+     * Cible : 91.173.110.4
+   - Cliquez sur "Valider"
+
+2. **Après avoir ajouté tous les enregistrements**:
+   - Attendez quelques minutes
+   - Vérifiez la propagation avec la commande :
+     ```bash
+     for subdomain in airquality prediction-vent api-meteo portainer jenkins vault traefik grafana prometheus; do
+         echo "Test de $subdomain.iaproject.fr:"
+         dig $subdomain.iaproject.fr +short
+     done
+     ```
+
+### Vérification des enregistrements
+
+Pour vérifier qu'un enregistrement est correctement configuré :
+
+```bash
+# Vérification rapide
+dig @ns104.ovh.net sous-domaine.iaproject.fr
+
+# Vérification détaillée
+dig sous-domaine.iaproject.fr
+
+# Vérification du temps de propagation
+dig +trace sous-domaine.iaproject.fr
+```
+
+### Notes importantes
+
+1. **TTL (Time To Live)**:
+   - Utilisez 60 secondes pour tous les enregistrements pour permettre des changements rapides
+   - Une fois la configuration stabilisée, vous pourrez augmenter le TTL à 3600 (1 heure)
+
+2. **Propagation**:
+   - La propagation peut prendre jusqu'à 24 heures
+   - Généralement, les changements sont visibles en 5-15 minutes
+   - Utilisez les commandes dig pour suivre la propagation
+
+3. **Sécurité**:
+   - Vérifiez que votre pare-feu autorise les connexions entrantes sur les ports nécessaires
+   - Ports à ouvrir :
+     * 80 (HTTP)
+     * 443 (HTTPS)
+     * 2222 (SSH personnalisé)

@@ -1,0 +1,62 @@
+# =============================================================================
+# Playbook principal de déploiement
+# =============================================================================
+#
+# Description:
+#   Playbook principal orchestrant le déploiement complet de l'infrastructure
+#   et de toutes les applications. Il importe et exécute les playbooks
+#   spécifiques dans l'ordre approprié.
+#
+# Playbooks importés:
+#   1. setup_apps_structure.yml: Configuration de l'infrastructure de base
+#   2. deploy.yml (airquality): Déploiement de l'application qualité de l'air
+#   3. deploy.yml (prediction-vent): Déploiement du service de prédiction du vent
+#   4. deploy.yml (api-meteo): Déploiement de l'API météo
+#
+# Variables:
+#   - base_apps_dir: Répertoire racine des applications
+#   - app_name: Nom de l'application en cours de déploiement
+#   - base_path: Chemin de base pour l'application
+#
+# Tags disponibles:
+#   - setup: Configuration de l'infrastructure
+#   - infrastructure: Tâches liées à l'infrastructure
+#   - deploy: Déploiement des applications
+#   - airquality: Tâches spécifiques à l'application qualité de l'air
+#   - prediction-vent: Tâches spécifiques au service de prédiction du vent
+#   - api-meteo: Tâches spécifiques à l'API météo
+# =============================================================================
+
+---
+# Playbook principal pour le déploiement complet
+- name: Import infrastructure setup
+  import_playbook: setup_apps_structure.yml
+  tags: ['setup', 'infrastructure']
+
+- name: Import application deployment
+  import_playbook: ../../../../projet_qualite_air/ansible/deploy.yml
+  vars:
+    app_name: airquality
+    base_path: "{{ base_apps_dir }}/airquality"
+    # Remap des variables pour la compatibilité
+    api_deploy_path: "{{ base_apps_dir }}/airquality/docker"
+    ihm_base_path: "{{ base_apps_dir }}/airquality/data"
+    ihm_service_path: "{{ base_apps_dir }}/airquality/services"
+  tags: ['deploy', 'airquality']
+
+# Autres imports pour les autres applications
+- name: Import prediction-vent deployment
+  import_playbook: applications/prediction-vent/deploy.yml
+  vars:
+    app_name: prediction-vent
+    base_path: "{{ base_apps_dir }}/prediction-vent"
+  tags: ['deploy', 'prediction-vent']
+  when: false  # À activer quand le playbook sera prêt
+
+- name: Import api-meteo deployment
+  import_playbook: applications/api-meteo/deploy.yml
+  vars:
+    app_name: api-meteo
+    base_path: "{{ base_apps_dir }}/api-meteo"
+  tags: ['deploy', 'api-meteo']
+  when: false  # À activer quand le playbook sera prêt

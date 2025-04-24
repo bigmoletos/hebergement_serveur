@@ -1,0 +1,77 @@
+# =============================================================================
+# Playbook de configuration DNS OVH
+# =============================================================================
+#
+# Description:
+#   Ce playbook configure automatiquement les enregistrements DNS pour tous les
+#   services hébergés sur le serveur via l'API OVH. Il utilise le script
+#   configure_ovh_dns.sh pour créer ou mettre à jour les enregistrements DNS.
+#
+# Prérequis:
+#   - Compte OVH avec accès API
+#   - Variables d'environnement OVH configurées
+#   - Script configure_ovh_dns.sh présent dans le répertoire working_dir
+#
+# Variables requises:
+#   - working_dir: Répertoire de travail contenant le script
+#   - OVH_APPLICATION_KEY: Clé d'application OVH
+#   - OVH_APPLICATION_SECRET: Secret d'application OVH
+#   - OVH_CONSUMER_KEY: Clé consommateur OVH
+#   - ansible_host: IP du serveur à utiliser pour les enregistrements DNS
+#
+# Sous-domaines configurés:
+#   Applications:
+#     - airquality: Application qualité de l'air
+#     - prediction-vent: Service de prédiction du vent
+#     - api-meteo: API météo
+#   Services:
+#     - portainer: Interface de gestion Docker
+#     - jenkins: Serveur CI/CD
+#     - vault: Gestionnaire de secrets
+#     - traefik: Dashboard Traefik
+#   Monitoring:
+#     - grafana: Visualisation des métriques
+#     - prometheus: Collecte des métriques
+# =============================================================================
+
+---
+- name: Configure DNS for all services
+  hosts: docker
+  become: true
+  vars:
+    subdomains:
+      - name: airquality
+        description: "Application qualité de l'air"
+      - name: prediction-vent
+        description: "Service de prédiction du vent"
+      - name: api-meteo
+        description: "API météo"
+      - name: portainer
+        description: "Interface de gestion Docker"
+      - name: jenkins
+        description: "Serveur CI/CD"
+      - name: vault
+        description: "Gestionnaire de secrets"
+      - name: traefik
+        description: "Dashboard Traefik"
+      - name: grafana
+        description: "Visualisation des métriques"
+      - name: prometheus
+        description: "Collecte des métriques"
+
+  tasks:
+    - name: Configure OVH DNS
+      shell: |
+        cd {{ working_dir }}
+        ./configure_ovh_dns.sh
+      environment:
+        OVH_APPLICATION_KEY: "{{ lookup('env', 'OVH_APPLICATION_KEY') }}"
+        OVH_APPLICATION_SECRET: "{{ lookup('env', 'OVH_APPLICATION_SECRET') }}"
+        OVH_CONSUMER_KEY: "{{ lookup('env', 'OVH_CONSUMER_KEY') }}"
+        OVH_DNS_ZONE: "iaproject.fr"
+        SERVER_IP: "{{ ansible_host }}"
+      register: dns_result
+
+    - name: Display DNS configuration result
+      debug:
+        var: dns_result.stdout_lines

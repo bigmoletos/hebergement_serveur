@@ -1,0 +1,63 @@
+# =============================================================================
+# Template Docker Compose pour les applications
+# =============================================================================
+#
+# Description:
+#   Template Jinja2 pour générer les fichiers docker-compose.yml des applications.
+#   Configure les services avec Traefik comme reverse proxy, monitoring et SSL.
+#
+# Variables requises:
+#   - DOCKER_USER: Utilisateur Docker Hub
+#   - APP_NAME: Nom de l'application
+#   - PYTHON_ENV: Environnement Python (production, development)
+#   - FLASK_DEBUG: Mode debug Flask (0, 1)
+#   - LOG_LEVEL: Niveau de log (INFO, DEBUG, etc.)
+#   - SUBDOMAIN: Sous-domaine de l'application
+#   - DOMAIN: Domaine principal
+#   - APP_PORT: Port de l'application
+#
+# Volumes:
+#   - config: Configuration en lecture seule
+#   - data: Données persistantes
+#   - logs: Logs de l'application
+#
+# Réseaux:
+#   - traefik-public: Réseau partagé pour Traefik
+# =============================================================================
+
+version: '3.8'
+
+services:
+  app:
+    image: ${DOCKER_USER}/${APP_NAME}:latest
+    container_name: ${APP_NAME}
+    restart: unless-stopped
+    environment:
+      - PYTHON_ENV=${PYTHON_ENV}
+      - FLASK_DEBUG=${FLASK_DEBUG}
+      - LOG_LEVEL=${LOG_LEVEL}
+    volumes:
+      - ../config:/app/config:ro
+      - ../data:/app/data
+      - ../logs:/app/logs
+    networks:
+      - traefik-public
+    labels:
+      # Configuration Traefik
+      - "traefik.enable=true"
+      - "traefik.http.routers.${APP_NAME}.rule=Host(`${SUBDOMAIN}.${DOMAIN}`)"
+      - "traefik.http.routers.${APP_NAME}.entrypoints=websecure"
+      - "traefik.http.routers.${APP_NAME}.tls.certresolver=letsencrypt"
+      - "traefik.http.services.${APP_NAME}.loadbalancer.server.port=${APP_PORT}"
+      # Health check
+      - "traefik.http.services.${APP_NAME}.loadbalancer.healthcheck.path=/health"
+      - "traefik.http.services.${APP_NAME}.loadbalancer.healthcheck.interval=30s"
+      - "traefik.http.services.${APP_NAME}.loadbalancer.healthcheck.timeout=5s"
+      # Metrics pour Prometheus
+      - "traefik.http.middlewares.${APP_NAME}-metrics.stripprefix.prefixes=/metrics"
+      - "traefik.http.routers.${APP_NAME}-metrics.rule=Host(`${SUBDOMAIN}.${DOMAIN}`) && PathPrefix(`/metrics`)"
+      - "traefik.http.routers.${APP_NAME}-metrics.middlewares=${APP_NAME}-metrics"
+
+networks:
+  traefik-public:
+    external: true
