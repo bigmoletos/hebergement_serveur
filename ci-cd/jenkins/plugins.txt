@@ -1,0 +1,7 @@
+configuration-as-code:latest
+job-dsl:latest
+git:latest
+gitlab-plugin:latest
+workflow-aggregator:latest
+matrix-auth:latest
+sse-gateway:latest

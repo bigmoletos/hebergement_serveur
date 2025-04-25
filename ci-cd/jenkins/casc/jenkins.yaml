@@ -10,7 +10,7 @@ jenkins:
   authorizationStrategy:
     globalMatrix:
       permissions:
-        - "Overall/Administer:admin"
+        - "Overall/Administer:${JENKINS_ADMIN_ID}"
         - "Overall/Read:authenticated"
 
 credentials:
@@ -43,6 +43,7 @@ jobs:
       folder('applications') {
           description('Dossier contenant tous les pipelines des applications')
       }
+  - file: /var/jenkins_config/jobs/
 
 unclassified:
   gitlabConnectionConfig:
