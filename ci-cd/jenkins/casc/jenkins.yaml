@@ -3,34 +3,37 @@ jenkins:
   securityRealm:
     local:
       allowsSignup: false
-      users:
-        - id: ${JENKINS_ADMIN_ID}
-          password: ${JENKINS_ADMIN_PASSWORD}
+      enableCaptcha: false
+      # --- SECTION À SUPPRIMER OU COMMENTER ---
+      # users:
+      #   - id: ${JENKINS_ADMIN_ID}
+      #     password: ${JENKINS_ADMIN_PASSWORD}
+      # --- FIN DE LA SECTION À SUPPRIMER OU COMMENTER ---
 
   authorizationStrategy:
     globalMatrix:
       permissions:
-        - "Overall/Administer:${JENKINS_ADMIN_ID}"
+        - "Overall/Administer:${JENKINS_ADMIN_ID:-admin}"
         - "Overall/Read:authenticated"
 
-credentials:
-  system:
-    domainCredentials:
-      - credentials:
-          # GitLab Token
-          - gitLabApiTokenImpl:
-              scope: SYSTEM
-              id: "gitlab-token"
-              apiToken: ${GITLAB_API_TOKEN}
-              description: "GitLab API Token"
-
-          # Docker Hub
-          - usernamePassword:
-              scope: SYSTEM
-              id: "docker-hub"
-              username: ${DOCKER_USERNAME}
-              password: ${DOCKER_PASSWORD}
-              description: "Docker Hub Credentials"
+#credentials:
+#  system:
+#    domainCredentials:
+#      - credentials:
+#          # GitLab Token
+#          - gitLabApiTokenImpl:
+#              scope: SYSTEM
+#              id: "gitlab-token"
+#              apiToken: ${GITLAB_API_TOKEN}
+#              description: "GitLab API Token"
+#
+#          # Docker Hub
+#          - usernamePassword:
+#              scope: SYSTEM
+#              id: "docker-hub"
+#              username: ${DOCKER_USERNAME}
+#              password: ${DOCKER_PASSWORD}
+#              description: "Docker Hub Credentials"
 
 tool:
   git:
@@ -38,16 +41,17 @@ tool:
       - name: Default
         home: git
 
-jobs:
-  - script: >
-      folder('applications') {
-          description('Dossier contenant tous les pipelines des applications')
-      }
-  - file: /var/jenkins_config/jobs/
+#jobs:
+#  - script: >
+#      folder('applications') {
+#          description('Dossier contenant tous les pipelines des applications')
+#      }
+#  - file: /var/jenkins_config/jobs/
 
 unclassified:
   gitlabConnectionConfig:
     connections:
-      - apiTokenId: "gitlab-token"
+      - apiTokenId: "gitlab-token" # Note: This might fail if credentials plugin isn't ready, but let's try.
         name: "GitLab"
         url: "https://gitlab.com"
+        clientBuilderId: "autodetect"

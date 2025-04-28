@@ -29,9 +29,13 @@ Utilisez le fichier `.env` existant du projet et ajoutez les variables Jenkins :
 # Ajoutez dans le fichier .env existant :
 JENKINS_ADMIN_USER=admin
 JENKINS_ADMIN_PASSWORD=votre_mot_de_passe_securise
+# NOTE IMPORTANTE: Cette variable JENKINS_ADMIN_PASSWORD est principalement utilisée par CasC
+# lors du *premier démarrage* de Jenkins pour créer l'utilisateur admin initial.
+# Si l'utilisateur existe déjà, CasC (avec la configuration par défaut) ne met PAS à jour
+# le mot de passe de manière fiable. Voir la section "Gestion du mot de passe Administrateur" pour plus de détails.
 
 # Générez le hash pour l'authentification basique
-docker run --rm httpd:2.4-alpine htpasswd -nb admin votre_mot_de_passe | sed -e s/\\$/\\$\\$/g
+docker run --rm httpd:2.4-alpine htpasswd -nb admin votre_mot_de_passe | sed -e s/\$/\$\$/g
 # Ajoutez le résultat comme JENKINS_BASIC_AUTH
 ```
 
@@ -150,6 +154,35 @@ docker-compose down -v
    - Vérifier l'accessibilité de l'URL
    - Tester manuellement le webhook
 
+### 6. Gestion du mot de passe Administrateur (Problème CasC)
+
+**Contexte :**
+Lors de l'utilisation de `Configuration as Code` (CasC) avec le `HudsonPrivateSecurityRealm` (base de données interne de Jenkins), un problème a été identifié : la configuration CasC via la section `users` dans `jenkins.yaml` tente de gérer le mot de passe administrateur à chaque rechargement ou redémarrage. Cependant, Jenkins stocke le hash du mot de passe pour ce Realm dans un fichier spécifique à l'utilisateur (`/var/jenkins_home/users/ID_UTILISATEUR/config.xml`) et non dans le fichier `config.xml` principal.
+
+**Symptôme :**
+Le mot de passe administrateur défini dans `.env` (et lu par CasC via `JENKINS_ADMIN_PASSWORD`) est appliqué au premier démarrage, mais après un rechargement de la configuration CasC (`Administrer Jenkins` > `Configuration as Code` > `Recharger`) ou un redémarrage de Jenkins (`docker compose restart jenkins`), le mot de passe est réinitialisé à une valeur précédente ou inattendue (souvent le mot de passe initial ou un mot de passe par défaut si Jenkins a été démarré sans le volume persistant la première fois).
+
+**Cause :**
+CasC met à jour la section `<securityRealm>` dans le `config.xml` principal, mais ne met pas à jour le hash dans le fichier `/var/jenkins_home/users/ID_UTILISATEUR/config.xml`. Jenkins, en lisant sa configuration, semble donner la priorité à l'information présente dans le fichier utilisateur, qui n'est pas touché par le rechargement CasC standard pour cette partie.
+
+**Solution :**
+1.  **Modifier `casc/jenkins.yaml` :** Commentez ou supprimez complètement la section `users:` sous `securityRealm.local`. Cela empêche CasC de tenter de gérer activement le mot de passe après le démarrage initial.
+    ```yaml
+    jenkins:
+      systemMessage: "Jenkins configuré via Configuration as Code"
+      securityRealm:
+        local:
+          allowsSignup: false
+          # --- Section à commenter ou supprimer ---
+          # users:
+          #   - id: ${JENKINS_ADMIN_ID}
+          #     password: ${JENKINS_ADMIN_PASSWORD}
+          # --- Fin de la section ---
+    ```
+2.  **Redémarrer Jenkins :** `docker compose restart jenkins`
+3.  **Définir le mot de passe manuellement :** Connectez-vous à Jenkins (potentiellement avec l'ancien mot de passe ou le mot de passe par défaut si c'est le premier démarrage après la modification). Allez dans `Administrer Jenkins` > `Utilisateurs` > `admin` > `Configurer`. Définissez le mot de passe souhaité (idéalement celui de votre `.env`) et enregistrez.
+4.  **Vérification :** Le mot de passe défini manuellement devrait maintenant persister après les rechargements CasC et les redémarrages de Jenkins.
+
 ## Configuration as Code
 
 ### 1. Configuration principale (jenkins.yaml)
@@ -159,9 +192,13 @@ jenkins:
   securityRealm:
     local:
       allowsSignup: false
-      users:
-        - id: ${JENKINS_ADMIN_ID}
-          password: ${JENKINS_ADMIN_PASSWORD}
+      # NOTE: La section 'users' est commentée car sa gestion par CasC
+      # peut entrer en conflit avec le stockage interne du mot de passe
+      # par Jenkins pour le HudsonPrivateSecurityRealm.
+      # Le mot de passe admin doit être géré manuellement après le premier démarrage.
+      # users:
+      #   - id: ${JENKINS_ADMIN_ID}
+      #     password: ${JENKINS_ADMIN_PASSWORD}
 
 credentials:
   system:
