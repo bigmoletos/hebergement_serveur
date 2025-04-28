@@ -40,9 +40,9 @@ services:
       - "traefik.http.services.jenkins.loadbalancer.server.port=8080"
       - "traefik.http.routers.jenkins.service=jenkins"
       - "traefik.http.services.jenkins.loadbalancer.passHostHeader=true"
-      # - "traefik.http.services.jenkins.loadbalancer.healthcheck.path=/login"
-      # - "traefik.http.services.jenkins.loadbalancer.healthcheck.interval=10s"
-      # - "traefik.http.services.jenkins.loadbalancer.healthcheck.timeout=5s"
+      - "traefik.http.services.jenkins.loadbalancer.healthcheck.path=/login"
+      - "traefik.http.services.jenkins.loadbalancer.healthcheck.interval=10s"
+      - "traefik.http.services.jenkins.loadbalancer.healthcheck.timeout=5s"
     logging:
       driver: "json-file"
       options:
