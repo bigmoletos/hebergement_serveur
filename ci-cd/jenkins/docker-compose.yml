@@ -13,7 +13,6 @@ services:
       - CASC_JENKINS_CONFIG=/var/jenkins_config
       - JENKINS_ADMIN_ID=${JENKINS_ADMIN_USER:-admin}
       - JENKINS_ADMIN_PASSWORD=${JENKINS_ADMIN_PASSWORD:-password}
-      - GITLAB_API_TOKEN=${GITLAB_API_TOKEN:-not_set}
       - GITLAB_URL=https://gitlab.com
       - DOCKER_REGISTRY_URL=https://index.docker.io/v1/
       - DOCKER_CREDENTIALS_ID=docker-hub
@@ -25,7 +24,9 @@ services:
       - jenkins_data:/var/jenkins_home
       - /var/run/docker.sock:/var/run/docker.sock
       - ./casc:/var/jenkins_config
+      - ./casc/init.groovy.d:/var/jenkins_home/init.groovy.d
       - ./plugins.txt:/usr/share/jenkins/ref/plugins.txt
+      - ../../ssh/airquality_server_key:/var/jenkins_secrets/airquality_server_key:ro
     networks:
       - traefik-public
     expose:

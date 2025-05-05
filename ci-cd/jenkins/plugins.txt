@@ -1,7 +1,15 @@
 configuration-as-code:latest
+credentials:latest
+plain-credentials:latest
+ssh-credentials:latest
+workflow-multibranch:latest
+pipeline-multibranch-defaults:latest
+structs:latest
 job-dsl:latest
 git:latest
 gitlab-plugin:latest
 workflow-aggregator:latest
 matrix-auth:latest
 sse-gateway:latest
+docker-workflow:latest
+workflow-job:latest

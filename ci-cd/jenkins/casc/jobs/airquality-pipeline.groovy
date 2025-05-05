@@ -1,8 +1,12 @@
+// Création des dossiers parents nécessaires
+folder('applications')
+folder('applications/airquality')
+
 pipelineJob('applications/airquality/build-and-deploy') {
     description('Pipeline CI/CD pour l\'application de qualité de l\'air')
 
     properties {
-        githubProjectUrl('https://gitlab.com/iaproject/projet_qualite_air')
+        githubProjectUrl('https://gitlab.com/iaproject-fr/airquality')
         pipelineTriggers {
             triggers {
                 gitlab {
@@ -19,13 +23,13 @@ pipelineJob('applications/airquality/build-and-deploy') {
             scm {
                 git {
                     remote {
-                        url('https://gitlab.com/iaproject/projet_qualite_air.git')
-                        credentials('gitlab-token')
+                        url('https://gitlab.com/iaproject-fr/airquality.git')
+                        // credentials('credentialGitlab') // Laisser commenté pour l'instant
                     }
                     branches('*/main', '*/develop')
                 }
             }
-            scriptPath('Jenkinsfile')
+            scriptPath('ci-cd/Jenkinsfile')
         }
     }
 }
