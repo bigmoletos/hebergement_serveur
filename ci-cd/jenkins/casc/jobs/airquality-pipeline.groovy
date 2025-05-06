@@ -30,6 +30,7 @@ pipelineJob('applications/airquality/build-and-deploy') {
                 }
             }
             scriptPath('ci-cd/Jenkinsfile')
+            lightweight(false)
         }
     }
 }
