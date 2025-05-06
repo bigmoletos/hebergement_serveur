@@ -184,9 +184,9 @@ pipelineJob('applications/airquality/build-and-deploy') {
                                         sh """
                                             echo "Building IHM image..."
                                             docker build -t ${env.LOGIN_DOCKERHUB}/${env.NAME_IMAGE_IHM}:${env.BUILD_TAG} -t ${env.LOGIN_DOCKERHUB}/${env.NAME_IMAGE_IHM}:latest .
-                                            // Push commenté car il y a une étape Push dédiée
-                                            // docker push ${env.LOGIN_DOCKERHUB}/${env.NAME_IMAGE_IHM}:${env.BUILD_TAG}
-                                            // docker push ${env.LOGIN_DOCKERHUB}/${env.NAME_IMAGE_IHM}:latest
+                                            # Push commenté car il y a une étape Push dédiée
+                                            # docker push ${env.LOGIN_DOCKERHUB}/${env.NAME_IMAGE_IHM}:${env.BUILD_TAG}
+                                            # docker push ${env.LOGIN_DOCKERHUB}/${env.NAME_IMAGE_IHM}:latest
                                         """
                                     }
                                 }
