@@ -274,6 +274,7 @@ pipelineJob('applications/airquality/build-and-deploy') {
                                                                     usernameVariable: 'DOCKER_USER',
                                                                     passwordVariable: 'DOCKER_PASSWORD')]) {
                                         sh """
+                                            echo "Attempting login for user: \\${DOCKER_USER}" # Diagnostic echo
                                             echo "\\${DOCKER_PASSWORD}" | docker login -u "\\${DOCKER_USER}" --password-stdin
                                             docker push ${env.LOGIN_DOCKERHUB}/${env.NAME_IMAGE_API}:latest
                                             # Push de latest ici aussi
