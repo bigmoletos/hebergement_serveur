@@ -14,6 +14,21 @@ jenkins:
 
 # --- Toutes les autres sections (credentials, tool, jobs, unclassified) sont temporairement commentées --- #
 
+# -- Logging Configuration imbriquée sous Jenkins --
+logging:
+  loggers:
+    # Loggers existants (ajuster si besoin)
+    # 'io.jenkins.plugins.casc': FINEST
+    # 'com.dabsquared.gitlabjenkins': FINEST
+
+    # Loggers ajoutés pour le débogage SCM Git
+    'hudson.plugins.git': FINER
+    'org.jenkinsci.plugins.gitclient': FINER
+    'org.jenkinsci.plugins.workflow.cps.CpsScmFlowDefinition': FINER
+    'com.cloudbees.plugins.credentials': FINER # Augmenté pour voir les accès aux credentials
+# -- Fin de la section Logging --
+
+# --- Section Credentials au même niveau que Jenkins --- #
 credentials:
   system:
     domainCredentials:
@@ -90,12 +105,14 @@ credentials:
               password: ${BDD_USER_ADMIN_PASSWORD}
               description: "BDD User Admin (pour AirQuality Ansible)"
 
+# --- Section Tool au même niveau que Jenkins --- #
 tool:
   git:
     installations:
       - name: Default
         home: git
 
+# --- Section Jobs au même niveau que Jenkins --- #
 jobs:
   - file: /var/jenkins_config/jobs/preparation_image_docker_ansible.groovy
   # - file: /var/jenkins_config/jobs/airquality-pipeline.groovy # Décommentez si vous définissez aussi ce pipeline via JobDSL
@@ -109,16 +126,3 @@ jobs:
 #         clientBuilderId: "autodetect"
 #         connectionTimeout: 10000
 #         readTimeout: 10000
-
-logging:
-  loggers:
-    # Loggers existants (ajuster si besoin)
-    # 'io.jenkins.plugins.casc': FINEST
-    # 'com.dabsquared.gitlabjenkins': FINEST
-    # 'com.cloudbees.plugins.credentials': FINE
-
-    # Loggers ajoutés pour le débogage SCM Git
-    'hudson.plugins.git': FINER
-    'org.jenkinsci.plugins.gitclient': FINER
-    'org.jenkinsci.plugins.workflow.cps.CpsScmFlowDefinition': FINER
-    'com.cloudbees.plugins.credentials': FINER # Augmenté pour voir les accès aux credentials
