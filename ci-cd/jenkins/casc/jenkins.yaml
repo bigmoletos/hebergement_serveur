@@ -110,8 +110,15 @@ jobs:
 #         connectionTimeout: 10000
 #         readTimeout: 10000
 
-# logging:
-#   loggers:
-#     'io.jenkins.plugins.casc': FINEST
-#     'com.dabsquared.gitlabjenkins': FINEST
-#     'com.cloudbees.plugins.credentials': FINE
+logging:
+  loggers:
+    # Loggers existants (ajuster si besoin)
+    # 'io.jenkins.plugins.casc': FINEST
+    # 'com.dabsquared.gitlabjenkins': FINEST
+    # 'com.cloudbees.plugins.credentials': FINE
+
+    # Loggers ajoutés pour le débogage SCM Git
+    'hudson.plugins.git': FINER
+    'org.jenkinsci.plugins.gitclient': FINER
+    'org.jenkinsci.plugins.workflow.cps.CpsScmFlowDefinition': FINER
+    'com.cloudbees.plugins.credentials': FINER # Augmenté pour voir les accès aux credentials
