@@ -27,9 +27,6 @@ pipelineJob('applications/airquality/build-and-deploy') {
                         credentials('credentialGitlab')
                     }
                     branches('*/main', '*/dev')
-                    extensions {
-                        wipeOutWorkspace()
-                    }
                 }
             }
             scriptPath('ci-cd/Jenkinsfile')
