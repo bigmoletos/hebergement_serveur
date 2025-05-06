@@ -16,7 +16,7 @@ pipelineJob('preparation_image_docker_ansible') {
                         credentials('credentialGitlab')
                     }
                     // Branche à utiliser
-                    branch('*/main') // Assurez-vous que c'est la bonne branche
+                    branch('*/main') // Le checkout initial se fait toujours sur main (ou la branche par défaut)
                     // Optionnel: extensions pour affiner le comportement Git
                     // extensions { cleanBeforeCheckout() }
                 }
@@ -30,14 +30,26 @@ pipelineJob('preparation_image_docker_ansible') {
 
     // Configure les déclencheurs (triggers)
     triggers {
-        // Déclenche périodiquement en interrogeant le SCM pour les changements
-        pollSCM {
-            // Toutes les 15 minutes environ. Ajustez si nécessaire.
-            scmpoll_spec('H/15 * * * *')
-            // Important: Ceci déclenchera sur TOUT changement dans la branche.
-            // Pour limiter aux changements dans 'ansible/', il faut affiner,
-            // soit via l'extension Git SCM 'polling' dans la définition ci-dessus,
-            // soit via l'UI après la création initiale. Commençons simplement.
+        // Déclencheur GitLab sur Push
+        gitlab {
+            // Nom de la connexion GitLab configurée dans Jenkins (voir /var/jenkins_home/init.groovy.d/gitlab-config.groovy)
+            connection('GitLab')
+            triggerOnPush(true)
+            triggerOnMergeRequest(false) // Désactivé pour ce job
+            triggerOpenMergeRequestOnPush("never")
+            // Filtre pour ne déclencher que sur les branches main ou dev
+            branchFilter {
+                type('RegexBasedFilter')
+                sourceBranchRegex('^(main|dev)$') // Regex pour les branches main ou dev
+            }
+            // Filtre pour ne déclencher que si les changements concernent le dossier ansible/
+            pathFilter {
+                type('PathBasedFilter')
+                includedPaths('ansible/.*') // Regex pour le chemin
+            }
+            // Nécessite la configuration d'un Secret Token dans le webhook GitLab
+            // et dans la configuration globale du plugin GitLab dans Jenkins.
+            secretToken(System.getenv('GITLAB_WEBHOOK_SECRET')) // Récupère le token depuis une variable d'env Jenkins
         }
     }
 
