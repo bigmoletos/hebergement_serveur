@@ -32,8 +32,8 @@ pipelineJob('preparation_image_docker_ansible') {
     triggers {
         // Déclencheur GitLab sur Push
         gitlab {
-            // Nom de la connexion GitLab configurée dans Jenkins (voir /var/jenkins_home/init.groovy.d/gitlab-config.groovy)
-            connection('GitLab')
+            // La connexion est implicitement celle configurée globalement
+            // connection('GitLab') // SUPPRIMÉ - Non valide ou nécessaire ici
             triggerOnPush(true)
             triggerOnMergeRequest(false) // Désactivé pour ce job
             triggerOpenMergeRequestOnPush("never")

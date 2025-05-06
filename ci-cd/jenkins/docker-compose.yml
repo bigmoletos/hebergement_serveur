@@ -15,10 +15,10 @@ services:
       - JENKINS_ADMIN_ID=${JENKINS_ADMIN_USER:-admin}
       - JENKINS_ADMIN_PASSWORD=${JENKINS_ADMIN_PASSWORD:-password}
       - GITLAB_URL=https://gitlab.com
+      - DOCKER_USERNAME=bigmoletos
+      - DOCKER_PASSWORD='+-*/2000Dce/*-+'
       - DOCKER_REGISTRY_URL=https://index.docker.io/v1/
       - DOCKER_CREDENTIALS_ID=docker-hub
-      - DOCKER_USERNAME=${DOCKER_USERNAME:-not_set}
-      - DOCKER_PASSWORD=${DOCKER_PASSWORD:-not_set}
       - JENKINS_OPTS=--httpListenAddress=0.0.0.0
       - JAVA_OPTS=-Djava.awt.headless=true -Dhudson.DNSMultiCast.disabled=true -Dhudson.udp=-1 -Djenkins.model.Jenkins.crumbIssuerProxyCompat=true
     volumes:
