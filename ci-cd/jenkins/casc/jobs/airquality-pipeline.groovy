@@ -274,9 +274,10 @@ pipelineJob('applications/airquality/build-and-deploy') {
                                                                     usernameVariable: 'DOCKER_USER',
                                                                     passwordVariable: 'DOCKER_PASSWORD')]) {
                                         sh """
-                                            echo "${DOCKER_PASSWORD}" | docker login -u "${DOCKER_USER}" --password-stdin
+                                            echo "\\${DOCKER_PASSWORD}" | docker login -u "\\${DOCKER_USER}" --password-stdin
                                             docker push ${env.LOGIN_DOCKERHUB}/${env.NAME_IMAGE_API}:latest
-                                            docker push ${env.LOGIN_DOCKERHUB}/${env.NAME_IMAGE_IHM}:latest // Push de latest ici aussi
+                                            # Push de latest ici aussi
+                                            docker push ${env.LOGIN_DOCKERHUB}/${env.NAME_IMAGE_IHM}:latest
                                             docker push ${env.LOGIN_DOCKERHUB}/${env.NAME_IMAGE_IHM}:${env.BUILD_TAG}
                                             docker push ${env.LOGIN_DOCKERHUB}/${env.NAME_IMAGE_IHM_TEST}:latest
                                         """
