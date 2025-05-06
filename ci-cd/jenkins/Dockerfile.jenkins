@@ -1,0 +1,37 @@
+    # hebergement_serveur/ci-cd/jenkins/Dockerfile
+
+    # Utiliser l'image officielle comme base
+    FROM jenkins/jenkins:lts
+
+    # Passer à l'utilisateur root pour installer des paquets
+    USER root
+
+    # Installer les prérequis et le client Docker (méthode recommandée)
+    RUN apt-get update && \
+        apt-get install -y --no-install-recommends \
+            ca-certificates \
+            curl \
+            gnupg && \
+        # Créer le répertoire pour les clés apt
+        install -m 0755 -d /etc/apt/keyrings && \
+        # Télécharger la clé GPG de Docker et la stocker
+        curl -fsSL https://download.docker.com/linux/debian/gpg -o /etc/apt/keyrings/docker.asc && \
+        # Rendre la clé lisible par apt
+        chmod a+r /etc/apt/keyrings/docker.asc && \
+        # Ajouter le dépôt Docker aux sources Apt
+        echo \
+          "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/debian \
+          $(. /etc/os-release && echo "$VERSION_CODENAME") stable" | \
+          tee /etc/apt/sources.list.d/docker.list > /dev/null && \
+        # Mettre à jour la liste des paquets après ajout du nouveau dépôt
+        apt-get update && \
+        # Installer Docker CLI
+        apt-get install -y --no-install-recommends docker-ce-cli && \
+        # Nettoyage
+        apt-get clean && \
+        rm -rf /var/lib/apt/lists/*
+
+    # Revenir à l'utilisateur jenkins par défaut (bonne pratique)
+    # Note: Dans docker-compose.yml, nous forcerons 'user: root' pour l'accès au socket,
+    # mais l'image elle-même est plus standard ainsi.
+    USER jenkins

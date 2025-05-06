@@ -96,8 +96,9 @@ tool:
       - name: Default
         home: git
 
-# jobs:
-#   - file: /var/jenkins_config/jobs/airquality-pipeline.groovy
+jobs:
+  - file: /var/jenkins_config/jobs/preparation_image_docker_ansible.groovy
+  # - file: /var/jenkins_config/jobs/airquality-pipeline.groovy # Décommentez si vous définissez aussi ce pipeline via JobDSL
 
 # unclassified:
 #   gitlabConnectionConfig:

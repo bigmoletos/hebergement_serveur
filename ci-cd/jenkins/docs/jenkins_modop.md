@@ -367,6 +367,77 @@ Le script devrait vérifier (liste indicative) :
     2.  **Configurer le Job/Pipeline :** Dans la configuration de votre pipeline Jenkins (section SCM ou `checkout scm`), sélectionnez explicitement le credential avec l'ID `credentialGitlab` (ou la description correspondante) pour l'URL de votre dépôt GitLab HTTPS.
     3.  **Vérifier :** Relancer le pipeline. Le checkout devrait maintenant utiliser ce credential `usernamePassword` (en passant le token comme mot de passe via `GIT_ASKPASS`), ce qui réussit l'authentification auprès de GitLab.
 
+### Problème 3: Erreur `docker: not found` lors de l'exécution d'étapes Docker dans un pipeline
+
+- **Symptômes :** Une étape `sh 'docker ...'` (par exemple `docker build`, `docker run`) dans un pipeline échoue avec `docker: not found`.
+- **Cause 1 : Agent Inadapté :** L'agent Jenkins exécutant l'étape (par défaut, le contrôleur Jenkins si `agent any` est utilisé) n'a pas le client Docker (la commande `docker`) installé.
+- **Cause 2 : Orchestration Agent Docker :** Même en utilisant `agent { docker { ... } }`, le *contrôleur Jenkins* a besoin du client `docker` pour interagir avec le démon Docker de l'hôte afin de lancer et gérer les conteneurs agents (`docker pull`, `docker run`, `docker inspect`). L'image Jenkins standard (`jenkins/jenkins:lts`) ne l'inclut pas.
+- **Solution Combinée :**
+    1.  **Utiliser des Agents Docker dédiés :** Pour les étapes nécessitant Docker, privilégier la syntaxe `agent { docker { image 'nom-image:tag' ... } }` dans le `Jenkinsfile` plutôt que `agent any`. Cela isole l'exécution Docker dans un conteneur dédié.
+    2.  **Créer une Image Jenkins Personnalisée :** Pour que le contrôleur Jenkins puisse gérer les agents Docker, il a besoin du client Docker. Créez un `Dockerfile` (ex: `hebergement_serveur/ci-cd/jenkins/Dockerfile.jenkins`) basé sur l'image officielle (`jenkins/jenkins:lts`) et installez-y le client `docker-ce-cli`.
+        ```dockerfile
+        # hebergement_serveur/ci-cd/jenkins/Dockerfile.jenkins (exemple)
+        FROM jenkins/jenkins:lts
+        USER root
+        RUN apt-get update && apt-get install -y --no-install-recommends curl apt-transport-https ca-certificates gnupg-agent software-properties-common && \
+            curl -fsSL https://download.docker.com/linux/debian/gpg | apt-key add - && \
+            add-apt-repository "deb [arch=$(dpkg --print-architecture)] https://download.docker.com/linux/debian $(lsb_release -cs) stable" && \
+            apt-get update && apt-get install -y --no-install-recommends docker-ce-cli && \
+            apt-get clean && rm -rf /var/lib/apt/lists/*
+        USER jenkins
+        ```
+    3.  **Construire l'Image Personnalisée :** Depuis le répertoire contenant ce Dockerfile, exécutez `docker build -t jenkins-avec-docker:latest -f Dockerfile.jenkins .` (adaptez le tag et le nom du fichier).
+    4.  **Modifier `docker-compose.yml` :**
+        *   Changer `image: jenkins/jenkins:lts` par `image: jenkins-avec-docker:latest` (ou le nom choisi).
+        *   **S'assurer** que le socket Docker est monté : `- /var/run/docker.sock:/var/run/docker.sock`.
+        *   **S'assurer** que Jenkins tourne en `root` pour les permissions sur le socket : `user: "root"`.
+    5.  **Redémarrer Jenkins :** `docker-compose down && docker-compose up -d`.
+
+### Problème 4: Erreur `Invalid agent type "docker" specified`
+
+- **Symptômes :** Le pipeline échoue immédiatement lors de la déclaration d'un `agent { docker { ... } }`.
+- **Cause :** Le plugin Jenkins requis, **Docker Pipeline** (ID: `docker-workflow`), n'est pas installé ou activé.
+- **Solution :**
+    1.  **Vérifier `plugins.txt` :** Assurez-vous que le fichier `hebergement_serveur/ci-cd/jenkins/plugins.txt` contient la ligne `docker-workflow:latest`.
+    2.  **Redémarrer Jenkins :** Arrêtez et redémarrez Jenkins (`docker-compose down && docker-compose up -d`). Jenkins tentera d'installer les plugins listés au démarrage. Surveillez les logs.
+    3.  **Vérifier via l'UI (si nécessaire) :** Allez dans `Administrer Jenkins` > `Plugins` > `Installed plugins`. Recherchez "Docker Pipeline". Assurez-vous qu'il est installé et coché (activé). S'il n'est pas installé malgré sa présence dans `plugins.txt`, vérifiez les logs de démarrage pour des erreurs d'installation (dépendances manquantes, etc.) et installez-le manuellement via l'onglet "Available plugins" si besoin, puis redémarrez.
+
+### Problème 5: Build OK (étapes vertes) mais statut final Rouge (❌) et "End" non atteint
+
+- **Symptômes :** Les étapes visibles dans le graphe du pipeline sont vertes, mais le statut global est échec.
+- **Cause Possible : Échec de l'Agent :** Souvent, cela indique que Jenkins n'a pas réussi à provisionner ou utiliser l'agent spécifié pour les `stages` principaux (ex: l'agent `docker` n'a pas pu démarrer à cause de l'erreur `docker: not found` décrite au Problème 3). Les `stages` ne s'exécutent pas, Jenkins passe directement au bloc `post`, qui peut réussir (s'il utilise un agent différent ou aucune étape dépendante), mais l'échec de l'allocation de l'agent principal marque le build comme échoué.
+- **Solution :** Consulter la **`Console Output`** complète du build pour identifier l'erreur exacte survenue après le checkout initial du `Jenkinsfile` et avant l'exécution des `stages` (voir Problème 3 et 4).
+
+## Architecture Avancée: Pipeline de Construction d'Image Agent
+
+**Raison d'être :** Plutôt que d'installer des outils (comme Ansible, Docker CLI, Terraform, etc.) manuellement sur les agents Jenkins ou d'utiliser des images génériques comme `docker:latest` qui peuvent manquer d'outils spécifiques, il est préférable de créer des **images Docker d'agent personnalisées**. Ces images contiennent précisément l'ensemble des outils requis pour un pipeline ou un stage donné. Pour éviter de construire et pousser ces images manuellement (ce qui est source d'erreurs et non reproductible), on automatise leur création via un pipeline CI/CD dédié.
+
+**Approche Choisie (Pipeline Jenkins Dédié) :**
+Pour éviter de surcharger les images agents standard ou de construire des images complexes à la volée, il est recommandé de créer des images d'agents personnalisées. Pour automatiser la création de ces images (ex: une image contenant Docker CLI et Ansible), un pipeline Jenkins dédié (`preparation_image_docker_ansible`) est mis en place via CasC :
+
+1.  **Création du `Dockerfile` de l'Agent :**
+    *   Placer un `Dockerfile` décrivant l'image agent personnalisée (ex: `projet_qualite_air/ansible/Dockerfile`).
+2.  **Création du `Jenkinsfile` pour le Build de l'Image Agent :**
+    *   Créer un `Jenkinsfile` spécifique (ex: `projet_qualite_air/ansible/Jenkinsfile.image-builder`) décrivant les étapes pour construire et pousser l'image agent vers un registre.
+3.  **Définition du Job Jenkins via Job DSL (CasC) :**
+    *   Dans `hebergement_serveur/ci-cd/jenkins/casc/jobs/`, créer un fichier `.groovy` (ex: `preparation_image_docker_ansible.groovy`) définissant le `pipelineJob` qui utilise le `Jenkinsfile.image-builder` et se déclenche sur les changements (ex: `pollSCM`).
+4.  **Chargement du Job DSL via `jenkins.yaml` :**
+    *   Référencer le fichier `.groovy` dans la section `jobs:` de `hebergement_serveur/ci-cd/jenkins/casc/jenkins.yaml`.
+5.  **Utilisation dans le Pipeline Applicatif :**
+    *   Le pipeline applicatif principal (`projet_qualite_air/ci-cd/Jenkinsfile`) utilise l'image pré-construite via `agent { docker { image 'votre-repo/nom-image-agent:latest' ... } }`.
+
+**Alternatives Considérées :**
+D'autres solutions existent pour automatiser la construction de l'image agent :
+*   **GitLab CI/CD :** Définir un job dans `.gitlab-ci.yml` dans le dépôt `projet_qualite_air` qui construit et pousse l'image, déclenché par les modifications dans `ansible/Dockerfile`.
+*   **Docker Hub Automated Builds :** Lier Docker Hub au dépôt GitLab pour que Docker Hub reconstruise automatiquement l'image lors de changements sur la branche spécifiée.
+L'approche avec un pipeline Jenkins dédié a été choisie pour centraliser la logique CI/CD au sein de Jenkins.
+
+**Avantages de l'Automatisation :**
+*   Environnements d'agents reproductibles et versionnés.
+*   Pipelines applicatifs plus simples.
+*   Construction des outils découplée de l'exécution applicative.
+*   Mises à jour des outils gérées via Git et CI.
+
 ## Bonnes pratiques
 
 *(Ajout ou renforcement de points spécifiques)*
