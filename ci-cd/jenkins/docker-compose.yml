@@ -3,6 +3,7 @@ services:
     image: jenkins-with-docker:latest
     container_name: jenkins
     restart: unless-stopped
+    user: "root"
     dns:
       - 8.8.8.8
       - 1.1.1.1

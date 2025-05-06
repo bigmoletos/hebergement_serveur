@@ -24,9 +24,12 @@ pipelineJob('applications/airquality/build-and-deploy') {
                 git {
                     remote {
                         url('https://gitlab.com/iaproject-fr/airquality.git')
-                        // credentials('credentialGitlab') // Laisser commenté pour l'instant
+                        credentials('credentialGitlab')
                     }
                     branches('*/main', '*/dev')
+                    extensions {
+                        wipeOutWorkspace()
+                    }
                 }
             }
             scriptPath('ci-cd/Jenkinsfile')
