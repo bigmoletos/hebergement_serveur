@@ -1,69 +1,69 @@
 jenkins:
-  systemMessage: "Jenkins minimal pour test CasC"
-  securityRealm:
-    local:
-      allowsSignup: false
-      enableCaptcha: false
-      # La section 'users' est gérée manuellement après le premier démarrage il faut rentrer le mot de passe de l'utilisateur admin qui est dans le fichier .env
+  systemMessage: "Jenkins minimal pour test CasC - LOGGING DEBUG"
+  # securityRealm:
+  #   local:
+  #     allowsSignup: false
+  #     enableCaptcha: false
+  # La section 'users' est gérée manuellement après le premier démarrage il faut rentrer le mot de passe de l'utilisateur admin qui est dans le fichier .env
 
-  authorizationStrategy:
-    globalMatrix:
-      permissions:
-        - "Overall/Administer:${JENKINS_ADMIN_ID:-admin}"
-        - "Overall/Read:authenticated"
+  # authorizationStrategy:
+  #   globalMatrix:
+  #     permissions:
+  #       - "Overall/Administer:${JENKINS_ADMIN_ID:-admin}"
+  #       - "Overall/Read:authenticated"
 
 # --- Toutes les autres sections (credentials, tool, jobs, unclassified) sont temporairement commentées --- #
 
-# -- Logging Configuration imbriquée sous Jenkins --
-logging:
-  loggers:
-    # Loggers existants (ajuster si besoin)
-    # 'io.jenkins.plugins.casc': FINEST
-    # 'com.dabsquared.gitlabjenkins': FINEST
+# -- Logging Configuration commentée car elle cause une erreur CasC --
+# logging:
+#   loggers:
+#     # Loggers existants (ajuster si besoin)
+#     # 'io.jenkins.plugins.casc': FINEST
+#     # 'com.dabsquared.gitlabjenkins': FINEST
 
-    # Loggers ajoutés pour le débogage SCM Git
-    'hudson.plugins.git': FINER
-    'org.jenkinsci.plugins.gitclient': FINER
-    'org.jenkinsci.plugins.workflow.cps.CpsScmFlowDefinition': FINER
-    'com.cloudbees.plugins.credentials': FINER # Augmenté pour voir les accès aux credentials
+#     # Loggers ajoutés pour le débogage SCM Git
+#     'hudson.plugins.git': FINER
+#     'org.jenkinsci.plugins.gitclient': FINER
+#     'org.jenkinsci.plugins.workflow.cps.CpsScmFlowDefinition': FINER
+#     'com.cloudbees.plugins.credentials': FINER # Augmenté pour voir les accès aux credentials
 # -- Fin de la section Logging --
 
-# --- Section Credentials au même niveau que Jenkins --- #
-credentials:
-  system:
-    domainCredentials:
-      - credentials:
+# --- Sections commentées pour débogage --- #
+# credentials:
+#   system:
+#     domainCredentials:
+#       - credentials:
           # --- Credentials Standard Jenkins --- #
           # Token GitLab pour la connexion Jenkins et le scan des dépôts (en tant que GitLab API Token)
           # Décommenté car utilisé par le script Groovy gitlab-config.groovy
-          - gitLabApiTokenImpl:
-              scope: SYSTEM
-              id: "gitlab-token"
-              apiToken: ${GITLAB_API_TOKEN}
-              description: "GitLab API Token (Standard Connection - via GitLab Token Type)"
+          # - gitLabApiTokenImpl:
+          #     scope: SYSTEM
+          #     id: "gitlab-token"
+          #     apiToken: ${GITLAB_API_TOKEN}
+          #     description: "GitLab API Token (Standard Connection - via GitLab Token Type)"
           # Identifiants Docker Hub pour pousser/tirer les images dans Jenkins
-          - usernamePassword:
-              scope: SYSTEM
-              id: "docker-hub"
-              username: ${DOCKER_USERNAME}
-              password: ${DOCKER_PASSWORD}
-              description: "Docker Hub Credentials (Standard)"
+          # - usernamePassword:
+          #     scope: SYSTEM
+          #     id: "docker-hub"
+          #     username: ${DOCKER_USERNAME}
+          #     password: ${DOCKER_PASSWORD}
+          #     description: "Docker Hub Credentials (Standard)"
 
           # --- Credentials Spécifiques au Pipeline AirQuality --- #
           # Token GitLab utilisé par le Jenkinsfile AirQuality (transformé en Username/Password)
-          - usernamePassword:
-              scope: GLOBAL
-              id: "credentialGitlab"
-              username: "oauth2"
-              password: ${GITLAB_API_TOKEN}
-              description: "GitLab Token (Username/Password pour checkout HTTPS - pour AirQuality Jenkinsfile)"
+          # - usernamePassword:
+          #     scope: GLOBAL
+          #     id: "credentialGitlab"
+          #     username: "oauth2"
+          #     password: ${GITLAB_API_TOKEN}
+          #     description: "GitLab Token (Username/Password pour checkout HTTPS - pour AirQuality Jenkinsfile)"
           # Identifiants Docker Hub utilisés par le Jenkinsfile AirQuality
-          - usernamePassword:
-              scope: GLOBAL # Ou SYSTEM
-              id: "dockerhub_airquality" # Nom spécifique requis par le Jenkinsfile
-              username: ${DOCKER_USERNAME}
-              password: ${DOCKER_PASSWORD}
-              description: "Docker Hub Credentials (pour AirQuality Jenkinsfile)"
+          # - usernamePassword:
+          #     scope: GLOBAL # Ou SYSTEM
+          #     id: "dockerhub_airquality" # Nom spécifique requis par le Jenkinsfile
+          #     username: ${DOCKER_USERNAME}
+          #     password: ${DOCKER_PASSWORD}
+          #     description: "Docker Hub Credentials (pour AirQuality Jenkinsfile)"
           # Clé SSH pour déploiement sur VM Test (utilise le fichier monté)
           # - sshUserPrivateKey:
           #     scope: GLOBAL
@@ -74,48 +74,48 @@ credentials:
           #         privateKeyFile: /var/jenkins_secrets/airquality_server_key
           #     description: "Clé SSH pour la VM de Test AirQuality"
           # Identifiants BDD pour Ansible
-          - usernamePassword:
-              scope: GLOBAL
-              id: "bdd_user1"
-              username: ${BDD_USER1_USERNAME}
-              password: ${BDD_USER1_PASSWORD}
-              description: "BDD User 1 (pour AirQuality Ansible)"
-          - usernamePassword:
-              scope: GLOBAL
-              id: "bdd_user2"
-              username: ${BDD_USER2_USERNAME}
-              password: ${BDD_USER2_PASSWORD}
-              description: "BDD User 2 (pour AirQuality Ansible)"
-          - usernamePassword:
-              scope: GLOBAL
-              id: "bdd_user3"
-              username: ${BDD_USER3_USERNAME}
-              password: ${BDD_USER3_PASSWORD}
-              description: "BDD User 3 (pour AirQuality Ansible)"
-          - usernamePassword:
-              scope: GLOBAL
-              id: "bdd_user4"
-              username: ${BDD_USER4_USERNAME}
-              password: ${BDD_USER4_PASSWORD}
-              description: "BDD User 4 (pour AirQuality Ansible)"
-          - usernamePassword:
-              scope: GLOBAL
-              id: "bdd_user_admin"
-              username: ${BDD_USER_ADMIN_USERNAME}
-              password: ${BDD_USER_ADMIN_PASSWORD}
-              description: "BDD User Admin (pour AirQuality Ansible)"
+          # - usernamePassword:
+          #     scope: GLOBAL
+          #     id: "bdd_user1"
+          #     username: ${BDD_USER1_USERNAME}
+          #     password: ${BDD_USER1_PASSWORD}
+          #     description: "BDD User 1 (pour AirQuality Ansible)"
+          # - usernamePassword:
+          #     scope: GLOBAL
+          #     id: "bdd_user2"
+          #     username: ${BDD_USER2_USERNAME}
+          #     password: ${BDD_USER2_PASSWORD}
+          #     description: "BDD User 2 (pour AirQuality Ansible)"
+          # - usernamePassword:
+          #     scope: GLOBAL
+          #     id: "bdd_user3"
+          #     username: ${BDD_USER3_USERNAME}
+          #     password: ${BDD_USER3_PASSWORD}
+          #     description: "BDD User 3 (pour AirQuality Ansible)"
+          # - usernamePassword:
+          #     scope: GLOBAL
+          #     id: "bdd_user4"
+          #     username: ${BDD_USER4_USERNAME}
+          #     password: ${BDD_USER4_PASSWORD}
+          #     description: "BDD User 4 (pour AirQuality Ansible)"
+          # - usernamePassword:
+          #     scope: GLOBAL
+          #     id: "bdd_user_admin"
+          #     username: ${BDD_USER_ADMIN_USERNAME}
+          #     password: ${BDD_USER_ADMIN_PASSWORD}
+          #     description: "BDD User Admin (pour AirQuality Ansible)"
 
 # --- Section Tool au même niveau que Jenkins --- #
-tool:
-  git:
-    installations:
-      - name: Default
-        home: git
+# tool:
+#   git:
+#     installations:
+#       - name: Default
+#         home: git
 
 # --- Section Jobs au même niveau que Jenkins --- #
-jobs:
-  - file: /var/jenkins_config/jobs/preparation_image_docker_ansible.groovy
-  # - file: /var/jenkins_config/jobs/airquality-pipeline.groovy # Décommentez si vous définissez aussi ce pipeline via JobDSL
+# jobs:
+#   - file: /var/jenkins_config/jobs/preparation_image_docker_ansible.groovy
+#   # - file: /var/jenkins_config/jobs/airquality-pipeline.groovy # Décommentez si vous définissez aussi ce pipeline via JobDSL
 
 # unclassified:
 #   gitlabConnectionConfig:
