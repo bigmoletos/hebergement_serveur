@@ -68,16 +68,16 @@ pipelineJob('applications/airquality/build-and-deploy') {
     }
 
     // Configuration Git globale
-    wrappers {
-        configFileProvider {
-            configFiles {
-                configFile {
-                    targetLocation('gitconfig')
-                    variable('GIT_CONFIG')
-                    content('''
-[core]
-    safedirectory = /var/jenkins_home/workspace/applications/airquality/build-and-deploy@script/*
-''')
+    configure { node ->
+        node / 'properties' / 'hudson.plugins.disk__usage.DiskUsageProperty' {
+            'diskUsageNode' {
+                'size'('0')
+            }
+        }
+        node / 'properties' / 'org.jenkinsci.plugins.workflow.job.properties.PipelineTriggersJobProperty' {
+            'triggers' {
+                'hudson.triggers.SCMTrigger' {
+                    'spec'('H/15 * * * *')
                 }
             }
         }

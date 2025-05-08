@@ -13,8 +13,9 @@ jenkins:
   #       - "Overall/Read:authenticated"
 
 # --- Configuration des logs via script Groovy intégré --- #
-# jobs:
-#   - file: /var/jenkins_config/jobs/airquality-pipeline.groovy
+jobs:
+  - file: /var/jenkins_config/jobs/airquality-pipeline.groovy
+  - file: /var/jenkins_config/jobs/git-config.xml
 
 # Script Groovy pour définir les niveaux de log
 security:
@@ -104,10 +105,6 @@ tool:
     installations:
       - name: Default
         home: git
-
-# --- Section Jobs au niveau racine --- #
-jobs:
-  - file: /var/jenkins_config/jobs/airquality-pipeline.groovy
 
 # Section unclassified commentée pour éviter des erreurs potentielles
 unclassified:
