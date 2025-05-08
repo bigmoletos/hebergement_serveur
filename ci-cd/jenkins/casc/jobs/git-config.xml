@@ -1,0 +1,40 @@
+<?xml version='1.1' encoding='UTF-8'?>
+<project>
+  <actions/>
+  <description>Configuration Git globale pour Jenkins</description>
+  <keepDependencies>false</keepDependencies>
+  <properties/>
+  <scm class="hudson.plugins.git.GitSCMSource" plugin="git@4.11.0">
+    <id>git-config</id>
+    <remote>https://gitlab.com/iaproject-fr/airquality.git</remote>
+    <credentialsId>credentialGitlab</credentialsId>
+    <traits>
+      <hudson.plugins.git.traits.BranchDiscoveryTrait/>
+      <hudson.plugins.git.traits.TagDiscoveryTrait/>
+      <jenkins.plugins.git.traits.CleanBeforeCheckoutTrait/>
+      <jenkins.plugins.git.traits.CleanCheckoutTrait/>
+      <jenkins.plugins.git.traits.CloneOptionTrait>
+        <extension>
+          <shallow>true</shallow>
+          <noTags>true</noTags>
+          <depth>1</depth>
+          <honorRefspec>true</honorRefspec>
+          <timeout>10</timeout>
+        </extension>
+      </jenkins.plugins.git.traits.CloneOptionTrait>
+    </traits>
+  </scm>
+  <canRoam>true</canRoam>
+  <disabled>false</disabled>
+  <blockBuildWhenDownstreamBuilding>false</blockBuildWhenDownstreamBuilding>
+  <blockBuildWhenUpstreamBuilding>false</blockBuildWhenUpstreamBuilding>
+  <triggers/>
+  <concurrentBuild>false</concurrentBuild>
+  <builders>
+    <hudson.tasks.Shell>
+      <command>git config --global --add safe.directory /var/jenkins_home/workspace/applications/airquality/build-and-deploy@script/*</command>
+    </hudson.tasks.Shell>
+  </builders>
+  <publishers/>
+  <buildWrappers/>
+</project>

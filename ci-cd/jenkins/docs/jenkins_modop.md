@@ -5,11 +5,12 @@
 2. [Lancement de Jenkins](#lancement-de-jenkins)
 3. [Configuration as Code (CasC)](#configuration-as-code-casc)
 4. [Configuration Spécifique: Connexion GitLab (Script Groovy)](#configuration-spécifique-connexion-gitlab-script-groovy)
-5. [Vérification via scripts](#vérification-via-scripts)
-6. [Vérification via l'interface](#vérification-via-linterface)
-7. [Intégration avec les projets existants](#intégration-avec-les-projets-existants)
-8. [Gestion du mot de passe Administrateur (Problème CasC)](#gestion-du-mot-de-passe-administrateur-problème-casc)
-9. [Intégration du dépôt d'hébergement GitHub avec Jenkins](#intégration-du-dépôt-d'hébergement-github-avec-jenkins)
+5. [Fichiers de Configuration Spécifiques](#fichiers-de-configuration-spécifiques)
+6. [Vérification via scripts](#vérification-via-scripts)
+7. [Vérification via l'interface](#vérification-via-linterface)
+8. [Intégration avec les projets existants](#intégration-avec-les-projets-existants)
+9. [Gestion du mot de passe Administrateur (Problème CasC)](#gestion-du-mot-de-passe-administrateur-problème-casc)
+10. [Intégration du dépôt d'hébergement GitHub avec Jenkins](#intégration-du-dépôt-d'hébergement-github-avec-jenkins)
 
 ## Configuration initiale
 
@@ -226,6 +227,110 @@ return
 ### 4. Interaction avec CasC
 - La section `unclassified.gitlabConnectionConfig` **doit rester commentée** dans `jenkins.yaml`.
 - Le credential GitLab (`gitlab-token`) **doit être défini** dans `jenkins.yaml` car le script Groovy s'y réfère par son ID.
+
+## Fichiers de Configuration Spécifiques
+
+### 1. Configuration Git (`git-config.xml`)
+
+#### Objectif
+Le fichier `git-config.xml` est utilisé pour configurer globalement Git dans Jenkins, en particulier pour résoudre les problèmes de sécurité liés aux répertoires de travail Git.
+
+#### Structure et Fonctionnement
+```xml
+<?xml version='1.1' encoding='UTF-8'?>
+<project>
+  <description>Configuration Git globale pour Jenkins</description>
+  <scm class="hudson.plugins.git.GitSCMSource">
+    <traits>
+      <hudson.plugins.git.traits.BranchDiscoveryTrait/>
+      <hudson.plugins.git.traits.TagDiscoveryTrait/>
+      <jenkins.plugins.git.traits.CleanBeforeCheckoutTrait/>
+      <jenkins.plugins.git.traits.CleanCheckoutTrait/>
+      <jenkins.plugins.git.traits.CloneOptionTrait>
+        <extension>
+          <shallow>true</shallow>
+          <noTags>true</noTags>
+          <depth>1</depth>
+          <timeout>10</timeout>
+        </extension>
+      </jenkins.plugins.git.traits.CloneOptionTrait>
+    </traits>
+  </scm>
+  <builders>
+    <hudson.tasks.Shell>
+      <command>git config --global --add safe.directory /var/jenkins_home/workspace/applications/airquality/build-and-deploy@script/*</command>
+    </hudson.tasks.Shell>
+  </builders>
+</project>
+```
+
+#### Pourquoi ce fichier ?
+1. **Sécurité Git** : Git 2.35+ introduit des vérifications de sécurité strictes pour les répertoires de travail. Ce fichier configure explicitement les répertoires sûrs.
+2. **Configuration Globale** : Assure une configuration Git cohérente pour tous les jobs Jenkins.
+3. **Optimisation des Clones** : Configure des options de clone optimisées (shallow, no-tags) pour améliorer les performances.
+
+### 2. Configuration Docker (`docker-config.json`)
+
+#### Objectif
+Le fichier `docker-config.json` gère l'authentification Docker de manière sécurisée dans Jenkins, évitant les problèmes de TTY et les risques de sécurité liés aux credentials en ligne de commande.
+
+#### Structure et Fonctionnement
+```json
+{
+  "auths": {
+    "https://index.docker.io/v1/": {
+      "auth": "${DOCKER_AUTH}"
+    }
+  },
+  "HttpHeaders": {
+    "User-Agent": "Docker-Client/19.03.13 (linux)"
+  }
+}
+```
+
+#### Pourquoi ce fichier ?
+1. **Sécurité des Credentials** : Évite d'exposer les credentials Docker dans les commandes shell ou les logs.
+2. **Résolution des Problèmes TTY** : Contourne l'erreur "Cannot perform an interactive login from a non TTY device" en utilisant une authentification basée sur fichier.
+3. **Gestion Centralisée** : Permet une gestion centralisée des configurations Docker pour tous les jobs.
+
+### 3. Intégration dans le Pipeline
+
+#### Utilisation dans Jenkinsfile
+```groovy
+environment {
+    DOCKER_CONFIG = "${WORKSPACE}/.docker"
+    DOCKER_AUTH = credentials('dockerhub_airquality')
+}
+
+steps {
+    script {
+        // Configuration Docker sécurisée
+        sh """
+            mkdir -p ${DOCKER_CONFIG}
+            cp ${WORKSPACE}/hebergement_serveur/ci-cd/jenkins/casc/docker-config.json ${DOCKER_CONFIG}/config.json
+            chmod 600 ${DOCKER_CONFIG}/config.json
+        """
+    }
+}
+```
+
+#### Bonnes Pratiques
+1. **Permissions** : Toujours définir les permissions appropriées (600) sur les fichiers de configuration.
+2. **Nettoyage** : Supprimer les fichiers sensibles après utilisation.
+3. **Variables d'Environnement** : Utiliser des variables d'environnement pour les valeurs sensibles.
+4. **Versioning** : Ne pas versionner les fichiers contenant des credentials.
+
+### 4. Maintenance et Mise à Jour
+
+#### Procédure de Mise à Jour
+1. Modifier les fichiers de configuration dans le répertoire `casc/`.
+2. Redémarrer Jenkins ou recharger la configuration via l'interface.
+3. Vérifier les logs pour s'assurer que les configurations sont correctement appliquées.
+
+#### Surveillance
+- Surveiller les logs Jenkins pour détecter d'éventuels problèmes d'authentification.
+- Vérifier régulièrement que les configurations sont toujours valides.
+- Maintenir à jour les versions des clients Docker et Git.
 
 ## Vérification via scripts
 

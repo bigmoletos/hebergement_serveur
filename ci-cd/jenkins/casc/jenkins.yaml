@@ -12,10 +12,65 @@ jenkins:
   #       - "Overall/Administer:${JENKINS_ADMIN_ID:-admin}"
   #       - "Overall/Read:authenticated"
 
-# --- Configuration des logs via script Groovy intégré --- #
+# --- Configuration des jobs --- #
 jobs:
-  - file: /var/jenkins_config/jobs/airquality-pipeline.groovy
-  - file: /var/jenkins_config/jobs/git-config.xml
+  - script: |
+      // Création des dossiers
+      folder('applications')
+      folder('applications/airquality')
+
+      // Configuration Git globale
+      job('git-config') {
+        description('Configuration Git globale pour Jenkins')
+        steps {
+          shell('git config --global --add safe.directory /var/jenkins_home/workspace/applications/airquality/build-and-deploy@script/*')
+        }
+      }
+
+      // Pipeline principal
+      pipelineJob('applications/airquality/build-and-deploy') {
+        description('Pipeline CI/CD pour l\'application de qualité de l\'air')
+        definition {
+          cpsScm {
+            scm {
+              git {
+                remote {
+                  url('https://gitlab.com/iaproject-fr/airquality.git')
+                  credentials('credentialGitlab')
+                }
+                branch('*/main')
+                extensions {
+                  cleanBeforeCheckout()
+                  cloneOptions {
+                    depth(1)
+                    shallow(true)
+                    timeout(10)
+                  }
+                }
+              }
+            }
+            scriptPath('ci-cd/jenkins/Jenkinsfile')
+            lightweight(false)
+          }
+        }
+        triggers {
+          gitlab {
+            triggerOnPush(true)
+            triggerOnMergeRequest(false)
+            triggerOpenMergeRequestOnPush("never")
+            secretToken(System.getenv('GITLAB_WEBHOOK_SECRET'))
+            branchFilterType("NameBasedFilter")
+            includeBranchesSpec("main")
+          }
+        }
+        properties {
+          disableConcurrentBuilds()
+        }
+        logRotator {
+          numToKeep(10)
+          artifactNumToKeep(5)
+        }
+      }
 
 # Script Groovy pour définir les niveaux de log
 security:
