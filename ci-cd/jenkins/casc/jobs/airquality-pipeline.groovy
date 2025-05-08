@@ -50,9 +50,6 @@ pipelineJob('applications/airquality/build-and-deploy') {
     // Autres propriétés du job
     properties {
         disableConcurrentBuilds()
-        rebuilderProperty {
-            autoRebuild(false)
-        }
         durabilityHint('PERFORMANCE_OPTIMIZED')
     }
 }

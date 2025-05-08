@@ -133,5 +133,4 @@ unclassified:
   githubConfiguration:
     endpoints:
       - apiUri: "https://api.github.com"
-        credentialsId: "github-hebergement"
-        manageHooks: true
+        name: "GitHub"
