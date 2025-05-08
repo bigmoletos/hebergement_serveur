@@ -27,11 +27,14 @@ pipelineJob('applications/airquality/build-and-deploy') {
                             shallow(true)
                             timeout(10)
                         }
+                        // Ajout d'une extension pour le débogage
+                        wipeOutWorkspace()
                     }
                 }
             }
-            scriptPath('Jenkinsfile')
-            lightweight(true)
+            // Vérification du chemin du Jenkinsfile
+            scriptPath('ci-cd/jenkins/Jenkinsfile')
+            lightweight(false) // Changé à false pour plus de stabilité
         }
     }
 
@@ -50,5 +53,11 @@ pipelineJob('applications/airquality/build-and-deploy') {
     // Autres propriétés du job
     properties {
         disableConcurrentBuilds()
+    }
+
+    // Configuration des logs
+    logRotator {
+        numToKeep(10)
+        artifactNumToKeep(5)
     }
 }
