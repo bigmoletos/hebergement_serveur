@@ -23,13 +23,48 @@ jobs:
       job('git-config') {
         description('Configuration Git globale pour Jenkins')
         steps {
-          shell('git config --global --add safe.directory /var/jenkins_home/workspace/applications/airquality/build-and-deploy@script/*')
+          shell('''
+            # Configuration des répertoires sûrs
+            git config --global --add safe.directory "*"
+            git config --global --add safe.directory /var/jenkins_home/workspace
+            git config --global --add safe.directory /var/jenkins_home/workspace/applications/airquality/build-and-deploy@script
+            git config --global --add safe.directory /var/jenkins_home/workspace/applications/airquality/build-and-deploy@script/*
+
+            # Configuration Git globale
+            git config --global core.longpaths true
+            git config --global http.sslVerify false
+            git config --global init.defaultBranch main
+
+            # Affichage de la configuration pour vérification
+            echo "=== Configuration Git actuelle ==="
+            git config --global --list
+          ''')
+        }
+
+        // Exécution périodique pour s'assurer que la configuration reste à jour
+        triggers {
+          periodic('H/30 * * * *')
         }
       }
 
       // Pipeline principal
       pipelineJob('applications/airquality/build-and-deploy') {
         description('Pipeline CI/CD pour l\'application de qualité de l\'air')
+
+        // Ajout de la configuration de workspace
+        configure { project ->
+          project / 'properties' / 'jenkins.model.BuildDiscarderProperty' {
+            strategy(class: 'hudson.tasks.LogRotator') {
+              daysToKeep(-1)
+              numToKeep(10)
+              artifactDaysToKeep(-1)
+              artifactNumToKeep(5)
+            }
+          }
+          // Nettoyage du workspace avant chaque build
+          project / scm / extensions << 'hudson.plugins.git.extensions.impl.WipeWorkspace'()
+        }
+
         definition {
           cpsScm {
             scm {
@@ -45,6 +80,21 @@ jobs:
                     depth(1)
                     shallow(true)
                     timeout(10)
+                    noTags(true)
+                  }
+                  // Ajout d'extensions supplémentaires
+                  wipeOutWorkspace()
+                  submoduleOptions {
+                    disable(true)
+                    recursive(false)
+                    tracking(false)
+                  }
+                  localBranch('main')
+                  preBuildMerge {
+                    options {
+                      mergeTarget('main')
+                      fastForwardMode('FF')
+                    }
                   }
                 }
               }
@@ -65,10 +115,6 @@ jobs:
         }
         properties {
           disableConcurrentBuilds()
-        }
-        logRotator {
-          numToKeep(10)
-          artifactNumToKeep(5)
         }
       }
 
