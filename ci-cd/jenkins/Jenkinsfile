@@ -49,6 +49,10 @@ pipeline {
         // Credentials Docker avec la bonne approche
         DOCKER_CREDENTIALS = credentials('dockerhub_airquality')
         DOCKER_REGISTRY = 'https://index.docker.io/v1/'
+
+        // Configuration Docker sécurisée
+        DOCKER_CONFIG = "${WORKSPACE}/.docker"
+        DOCKER_AUTH = credentials('dockerhub_airquality')
     }
 
     stages {
@@ -225,22 +229,37 @@ pipeline {
                     sh 'docker rm -f api_ihm_test || true'
                     sh 'docker rm -f api_ihm || true'
 
+                    // Création du répertoire de configuration Docker
+                    sh """
+                        mkdir -p ${DOCKER_CONFIG}
+                        cp ${WORKSPACE}/hebergement_serveur/ci-cd/jenkins/casc/docker-config.json ${DOCKER_CONFIG}/config.json
+                        chmod 600 ${DOCKER_CONFIG}/config.json
+                    """
+
                     withCredentials([usernamePassword(credentialsId: 'dockerhub_airquality',
                                                     usernameVariable: 'DOCKER_USER',
                                                     passwordVariable: 'DOCKER_PASSWORD')]) {
-                        sh '''
-                            # Configuration de l'authentification Docker
-                            docker login -u "$DOCKER_USER" -p "$DOCKER_PASSWORD"
+                        sh """
+                            # Génération de l'auth token en base64
+                            echo -n "$DOCKER_USER:$DOCKER_PASSWORD" | base64 > ${DOCKER_CONFIG}/auth.txt
+                            export DOCKER_AUTH=\$(cat ${DOCKER_CONFIG}/auth.txt)
 
-                            # Push des images
-                            docker push ${LOGIN_DOCKERHUB}/${NAME_IMAGE_API}:latest
-                            docker push ${LOGIN_DOCKERHUB}/${NAME_IMAGE_IHM}:latest
-                            docker push ${LOGIN_DOCKERHUB}/${NAME_IMAGE_IHM}:${BUILD_TAG}
-                            docker push ${LOGIN_DOCKERHUB}/${NAME_IMAGE_IHM_TEST}:latest
+                            # Push des images avec retry
+                            for i in 1 2 3; do
+                                if docker push ${LOGIN_DOCKERHUB}/${NAME_IMAGE_API}:latest && \
+                                   docker push ${LOGIN_DOCKERHUB}/${NAME_IMAGE_IHM}:latest && \
+                                   docker push ${LOGIN_DOCKERHUB}/${NAME_IMAGE_IHM}:${BUILD_TAG} && \
+                                   docker push ${LOGIN_DOCKERHUB}/${NAME_IMAGE_IHM_TEST}:latest; then
+                                    break
+                                fi
+                                echo "Retry \$i/3..."
+                                sleep 5
+                            done
 
-                            # Déconnexion de Docker Hub
-                            docker logout
-                        '''
+                            # Nettoyage des fichiers sensibles
+                            rm -f ${DOCKER_CONFIG}/auth.txt
+                            rm -rf ${DOCKER_CONFIG}
+                        """
                     }
                 }
             }
@@ -309,19 +328,43 @@ pipeline {
 
     post {
         always {
-            script {
-                sh 'docker logout || true'
-                cleanWs()
+            node('any') {
+                script {
+                    // Nettoyage des conteneurs et images
+                    sh '''
+                        docker rm -f api_ihm_test || true
+                        docker rm -f api_ihm || true
+                        docker system prune -f || true
+                    '''
+
+                    // Nettoyage des fichiers de configuration
+                    sh """
+                        rm -rf ${WORKSPACE}/.docker || true
+                        rm -rf ${WORKSPACE}/docker-config.json || true
+                    """
+
+                    // Notification du statut
+                    emailext (
+                        subject: "Build ${currentBuild.result}: Job '${env.JOB_NAME} [${env.BUILD_NUMBER}]'",
+                        body: """<p>Build ${currentBuild.result}: Job '${env.JOB_NAME} [${env.BUILD_NUMBER}]':</p>
+                        <p>Consultez les détails du build: <a href='${env.BUILD_URL}'>${env.BUILD_URL}</a></p>""",
+                        recipientProviders: [[$class: 'DevelopersRecipientProvider']]
+                    )
+                }
             }
         }
         success {
-            script {
-                echo 'Pipeline completed successfully!'
+            node('any') {
+                script {
+                    echo "Pipeline exécuté avec succès"
+                }
             }
         }
         failure {
-            script {
-                echo 'Pipeline failed!'
+            node('any') {
+                script {
+                    echo "Échec du pipeline"
+                }
             }
         }
     }
