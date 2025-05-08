@@ -43,5 +43,9 @@ pipelineJob('infrastructure/hebergement/config-update') {
     // Autres propriétés du job
     properties {
         disableConcurrentBuilds()
+        rebuilderProperty {
+            autoRebuild(false)
+        }
+        durabilityHint('PERFORMANCE_OPTIMIZED')
     }
 }
