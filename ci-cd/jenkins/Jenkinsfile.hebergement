@@ -1,0 +1,72 @@
+pipeline {
+    agent any
+
+    environment {
+        GITHUB_CREDENTIALS = credentials('github-hebergement')
+    }
+
+    stages {
+        stage('Validate Configuration') {
+            steps {
+                script {
+                    echo "Validating Jenkins configuration files..."
+                    // Vérification de la syntaxe des fichiers yaml
+                    sh '''
+                        for file in $(find . -name "*.yaml" -o -name "*.yml"); do
+                            echo "Validating $file"
+                            yamllint "$file" || true
+                        done
+                    '''
+
+                    // Vérification des fichiers Groovy
+                    sh '''
+                        for file in $(find . -name "*.groovy"); do
+                            echo "Checking $file"
+                            groovy -cp /var/jenkins_home/war/WEB-INF/lib/jenkins-core-*.jar:. -e "evaluate(new File('$file'))" || true
+                        done
+                    '''
+                }
+            }
+        }
+
+        stage('Apply Configuration') {
+            steps {
+                script {
+                    echo "Applying configuration changes..."
+                    // Recharger la configuration Jenkins si nécessaire
+                    def changes = sh(script: 'git diff --name-only HEAD HEAD~1 | grep -E ".*\\.(yaml|yml|groovy)$" || true', returnStdout: true).trim()
+                    if (changes) {
+                        echo "Configuration files changed, reloading Jenkins..."
+                        jenkins.model.Jenkins.instance.reload()
+                    }
+                }
+            }
+        }
+
+        stage('Update Services') {
+            steps {
+                script {
+                    echo "Updating services if needed..."
+                    // Vérifier les changements dans les services
+                    def serviceChanges = sh(script: 'git diff --name-only HEAD HEAD~1 | grep -E "docker-compose.*\\.ya?ml$" || true', returnStdout: true).trim()
+                    if (serviceChanges) {
+                        echo "Docker services configuration changed, updating..."
+                        sh 'docker compose -f docker-compose.yml up -d --remove-orphans'
+                    }
+                }
+            }
+        }
+    }
+
+    post {
+        always {
+            cleanWs()
+        }
+        success {
+            echo 'Configuration updated successfully!'
+        }
+        failure {
+            echo 'Failed to update configuration!'
+        }
+    }
+}

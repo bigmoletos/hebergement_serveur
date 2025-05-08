@@ -1,6 +1,8 @@
 import jenkins.model.*
 import com.dabsquared.gitlabjenkins.connection.GitLabConnection
 import com.dabsquared.gitlabjenkins.connection.GitLabConnectionConfig
+import java.util.logging.Level
+import java.util.logging.Logger
 
 // Configuration souhaitée
 def gitlabConnectionName = "GitLab"
@@ -49,3 +51,8 @@ if (!connectionExists) {
 }
 
 return // Terminer le script
+
+Logger.getLogger("hudson.plugins.git").setLevel(Level.FINER)
+Logger.getLogger("org.jenkinsci.plugins.gitclient").setLevel(Level.FINER)
+Logger.getLogger("org.jenkinsci.plugins.workflow.cps.CpsScmFlowDefinition").setLevel(Level.FINER)
+Logger.getLogger("com.cloudbees.plugins.credentials").setLevel(Level.FINER)

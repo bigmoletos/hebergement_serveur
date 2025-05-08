@@ -9,6 +9,7 @@
 6. [Vérification via l'interface](#vérification-via-linterface)
 7. [Intégration avec les projets existants](#intégration-avec-les-projets-existants)
 8. [Gestion du mot de passe Administrateur (Problème CasC)](#gestion-du-mot-de-passe-administrateur-problème-casc)
+9. [Intégration du dépôt d'hébergement GitHub avec Jenkins](#intégration-du-dépôt-d'hébergement-github-avec-jenkins)
 
 ## Configuration initiale
 
@@ -447,3 +448,98 @@ L'approche avec un pipeline Jenkins dédié a été choisie pour centraliser la 
 3.  **Monitoring :** Utiliser des plugins comme `Prometheus Metrics` pour exposer des métriques. Surveiller l'utilisation disque du volume `jenkins_data`.
 4.  **Documentation :** Maintenir ce fichier `jenkins_modop.md` à jour.
 5.  **Tests de la configuration :** Utiliser `./scripts/check-configuration.sh` (ou un équivalent) après chaque modification majeure. Tester manuellement les points clés dans l'interface (connexion GitLab, exécution d'un job simple).
+
+## Intégration du dépôt d'hébergement GitHub avec Jenkins
+
+### 1. Contexte et Objectif
+
+Le dépôt d'hébergement (`hebergement_serveur`) est hébergé sur GitHub ([lien](https://github.com/bigmoletos/hebergement_serveur.git)), tandis que le projet applicatif principal est sur GitLab. Pour garantir la cohérence, l'automatisation et la traçabilité des changements d'infrastructure, il est essentiel de déclencher automatiquement des builds Jenkins à chaque modification du dépôt d'hébergement.
+
+### 2. Pourquoi mettre en place un webhook GitHub ?
+
+- **Automatisation** : Chaque commit/push sur le dépôt GitHub déclenche automatiquement un pipeline Jenkins, assurant l'application immédiate des changements de configuration.
+- **Sécurité** : L'utilisation d'un secret pour le webhook garantit que seuls les événements authentifiés de GitHub sont acceptés par Jenkins.
+- **Traçabilité** : Les modifications d'infrastructure sont historisées et auditées via GitHub et Jenkins.
+
+### 3. Mise en place du webhook GitHub
+
+#### a. Génération du secret webhook
+
+Un secret sécurisé est généré (exemple : `openssl rand -hex 20`) et stocké dans le fichier `.env` sous la variable :
+```
+GITHUB_WEBHOOK_SECRET=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+```
+
+#### b. Configuration du webhook dans GitHub
+
+- Aller dans **Settings > Webhooks** du dépôt GitHub.
+- Cliquer sur **Add webhook**.
+- **Payload URL** : `https://jenkins.iaproject.fr/github-webhook/`
+- **Content type** : `application/json`
+- **Secret** : (le secret généré ci-dessus)
+- **Events** : sélectionner uniquement "Just the push event".
+- Valider.
+- Vérifier que "Last delivery was successful" s'affiche (✓ vert).
+
+#### c. Configuration côté Jenkins
+
+- Ajout du credential GitHub dans `jenkins.yaml` :
+    ```yaml
+    - usernamePassword:
+        scope: GLOBAL
+        id: "github-hebergement"
+        username: ${GITHUB_USER}
+        password: ${GITHUB_PASSWORD}
+        description: "GitHub Credentials pour le dépôt d'hébergement"
+    ```
+- Ajout de la configuration webhook dans la section `unclassified` :
+    ```yaml
+    githubConfiguration:
+      configs:
+        - name: "GitHub"
+          apiUrl: "https://api.github.com"
+          credentialsId: "github-hebergement"
+          manageHooks: true
+
+    githubWebhookConfiguration:
+      webhookSecretConfigs:
+        - webhookSecretId: "github-webhook-secret"
+          webhookSecret: ${GITHUB_WEBHOOK_SECRET}
+    ```
+
+#### d. Création du pipeline d'hébergement
+
+- **Job DSL** : `casc/jobs/hebergement-pipeline.groovy`
+    - Surveille le dépôt GitHub.
+    - Utilise le credential `github-hebergement`.
+    - Déclencheur : `githubPush()`.
+    - Utilise le fichier `ci-cd/jenkins/Jenkinsfile.hebergement` pour la logique du pipeline.
+
+- **Jenkinsfile dédié** : `ci-cd/jenkins/Jenkinsfile.hebergement`
+    - Valide la syntaxe des fichiers YAML et Groovy.
+    - Applique la configuration Jenkins si des fichiers de config ont changé.
+    - Met à jour les services Docker si besoin.
+
+#### e. Pourquoi cette architecture ?
+
+- **Séparation claire** entre la logique d'hébergement (infrastructure, Jenkins, scripts) et la logique applicative (projet GitLab).
+- **Sécurité** : chaque dépôt a son propre secret et ses propres credentials.
+- **Scalabilité** : possibilité d'ajouter d'autres dépôts d'infrastructure ou de monitoring avec la même logique.
+
+### 4. Bonnes pratiques
+
+- **Ne jamais exposer le secret webhook** dans les scripts ou dans le code source.
+- **Vérifier régulièrement** le statut du webhook dans GitHub.
+- **Documenter** toute modification de la configuration Jenkins ou du pipeline d'hébergement.
+
+### 5. Test du webhook
+
+1. Faire un commit/push sur le dépôt GitHub `hebergement_serveur`.
+2. Vérifier dans GitHub que le webhook est bien déclenché (section "Recent Deliveries").
+3. Vérifier dans Jenkins que le pipeline `infrastructure/hebergement/config-update` est lancé automatiquement.
+4. Consulter les logs Jenkins pour s'assurer que les étapes de validation et d'application de la configuration se déroulent sans erreur.
+
+---
+
+**Résumé** :
+La mise en place du webhook GitHub permet d'automatiser la gestion de l'infrastructure Jenkins à chaque modification du dépôt d'hébergement, tout en garantissant sécurité, traçabilité et bonnes pratiques DevOps.
