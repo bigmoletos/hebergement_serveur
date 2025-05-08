@@ -23,20 +23,21 @@ jobs:
       job('git-config') {
         description('Configuration Git globale pour Jenkins')
         steps {
-          shell('''
-            # Configuration des répertoires sûrs
-            git config --global --add safe.directory "*"
-            git config --global --add safe.directory /var/jenkins_home/workspace
-            git config --global --add safe.directory /var/jenkins_home/workspace/applications/airquality/build-and-deploy@script
-            git config --global --add safe.directory /var/jenkins_home/workspace/applications/airquality/build-and-deploy@script/*
+          shell('''#!/bin/bash
+            echo "=== Configuring Git settings ==="
 
-            # Configuration Git globale
+            # Configuration Git de base
             git config --global core.longpaths true
             git config --global http.sslVerify false
             git config --global init.defaultBranch main
 
-            # Affichage de la configuration pour vérification
-            echo "=== Configuration Git actuelle ==="
+            # Configuration des répertoires sûrs
+            git config --global --add safe.directory '/var/jenkins_home/workspace'
+            git config --global --add safe.directory '/var/jenkins_home/workspace/applications/airquality'
+            git config --global --add safe.directory '/var/jenkins_home/workspace/applications/airquality/build-and-deploy@script'
+
+            # Affichage de la configuration
+            echo "=== Current Git configuration ==="
             git config --global --list
           ''')
         }
