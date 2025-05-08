@@ -36,6 +36,15 @@ jobs:
             git config --global --add safe.directory '/var/jenkins_home/workspace/applications/airquality'
             git config --global --add safe.directory '/var/jenkins_home/workspace/applications/airquality/build-and-deploy@script'
 
+            # Ajout du chemin spécifique du workspace
+            WORKSPACE_PATH="/var/jenkins_home/workspace/applications/airquality/build-and-deploy@script"
+            for dir in "$WORKSPACE_PATH"/*; do
+              if [ -d "$dir" ]; then
+                echo "Adding workspace directory: $dir"
+                git config --global --add safe.directory "$dir"
+              fi
+            done
+
             # Affichage de la configuration
             echo "=== Current Git configuration ==="
             git config --global --list
@@ -52,18 +61,29 @@ jobs:
       pipelineJob('applications/airquality/build-and-deploy') {
         description('Pipeline CI/CD pour l\'application de qualité de l\'air')
 
-        // Ajout de la configuration de workspace
-        configure { project ->
-          project / 'properties' / 'jenkins.model.BuildDiscarderProperty' {
-            strategy(class: 'hudson.tasks.LogRotator') {
-              daysToKeep(-1)
-              numToKeep(10)
-              artifactDaysToKeep(-1)
-              artifactNumToKeep(5)
+        // Configuration des propriétés du job
+        properties {
+          disableConcurrentBuilds()
+          pipelineTriggers {
+            triggers {
+              gitlab {
+                triggerOnPush(true)
+                triggerOnMergeRequest(true)
+                triggerOnNoteRequest(false)
+                noteRegex("Jenkins please retry")
+                skipWorkInProgressMergeRequest(true)
+                ciSkip(true)
+                setBuildDescription(true)
+                addNoteOnMergeRequest(true)
+                addCiMessage(true)
+                addVoteOnMergeRequest(true)
+                acceptMergeRequestOnSuccess(false)
+                branchFilterType("NameBasedFilter")
+                includeBranchesSpec("main develop feature/* hotfix/*")
+                secretToken(System.getenv('GITLAB_WEBHOOK_SECRET'))
+              }
             }
           }
-          // Nettoyage du workspace avant chaque build
-          project / scm / extensions << 'hudson.plugins.git.extensions.impl.WipeWorkspace'()
         }
 
         definition {
@@ -83,7 +103,6 @@ jobs:
                     timeout(10)
                     noTags(true)
                   }
-                  // Ajout d'extensions supplémentaires
                   wipeOutWorkspace()
                   submoduleOptions {
                     disable(true)
@@ -91,31 +110,12 @@ jobs:
                     tracking(false)
                   }
                   localBranch('main')
-                  preBuildMerge {
-                    options {
-                      mergeTarget('main')
-                      fastForwardMode('FF')
-                    }
-                  }
                 }
               }
             }
             scriptPath('ci-cd/jenkins/Jenkinsfile')
             lightweight(false)
           }
-        }
-        triggers {
-          gitlab {
-            triggerOnPush(true)
-            triggerOnMergeRequest(false)
-            triggerOpenMergeRequestOnPush("never")
-            secretToken(System.getenv('GITLAB_WEBHOOK_SECRET'))
-            branchFilterType("NameBasedFilter")
-            includeBranchesSpec("main")
-          }
-        }
-        properties {
-          disableConcurrentBuilds()
         }
       }
 
