@@ -113,15 +113,6 @@ tool:
     installations:
       - name: Default
         home: git
-        # Configuration Git pour marquer le répertoire Jenkins comme sûr
-        globalConfigName: "Jenkins"
-        globalConfigEmail: "jenkins@example.com"
-        additionalBehaviours:
-          - addToKnownHosts:
-              hostname: "gitlab.com"
-          - gitConfig:
-              key: "safe.directory"
-              value: "/var/jenkins_home/workspace/*"
 
 # --- Section Jobs au niveau racine --- #
 jobs:
