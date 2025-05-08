@@ -131,14 +131,7 @@ unclassified:
 
   # Configuration des webhooks GitHub
   githubConfiguration:
-    configs:
-      - name: "GitHub"
-        apiUrl: "https://api.github.com"
+    endpoints:
+      - apiUri: "https://api.github.com"
         credentialsId: "github-hebergement"
         manageHooks: true
-
-  # Configuration des webhooks GitHub
-  githubWebhookConfiguration:
-    webhookSecretConfigs:
-      - webhookSecretId: "github-webhook-secret"
-        webhookSecret: ${GITHUB_WEBHOOK_SECRET}
