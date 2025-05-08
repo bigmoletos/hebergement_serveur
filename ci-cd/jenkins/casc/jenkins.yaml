@@ -12,15 +12,6 @@ jenkins:
   #       - "Overall/Administer:${JENKINS_ADMIN_ID:-admin}"
   #       - "Overall/Read:authenticated"
 
-# Nécessite les plugin "Support Core" et "script security" installé
-logging:
-  loggers:
-    hudson.plugins.git: FINER
-    org.jenkinsci.plugins.gitclient: FINER
-    org.jenkinsci.plugins.workflow.cps.CpsScmFlowDefinition: FINER
-    com.cloudbees.plugins.credentials: FINER
-    com.cloudbees.jenkins.GitHubWebHook: FINER
-
 # --- Configuration des logs via script Groovy intégré --- #
 # jobs:
 #   - file: /var/jenkins_config/jobs/airquality-pipeline.groovy
