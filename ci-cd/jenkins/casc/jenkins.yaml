@@ -43,7 +43,7 @@ jobs:
 
         // Exécution périodique pour s'assurer que la configuration reste à jour
         triggers {
-          periodic('H/30 * * * *')
+          timerTrigger('H/30 * * * *')
         }
       }
 
