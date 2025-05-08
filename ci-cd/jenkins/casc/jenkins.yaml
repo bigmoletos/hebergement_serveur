@@ -13,12 +13,13 @@ jenkins:
   #       - "Overall/Read:authenticated"
 
 # Nécessite les plugin "Support Core" et "script security" installé
-# logging:
-#   loggers:
-#     hudson.plugins.git: FINER
-#     org.jenkinsci.plugins.gitclient: FINER
-#     org.jenkinsci.plugins.workflow.cps.CpsScmFlowDefinition: FINER
-#     com.cloudbees.plugins.credentials: FINER
+logging:
+  loggers:
+    hudson.plugins.git: FINER
+    org.jenkinsci.plugins.gitclient: FINER
+    org.jenkinsci.plugins.workflow.cps.CpsScmFlowDefinition: FINER
+    com.cloudbees.plugins.credentials: FINER
+    com.cloudbees.jenkins.GitHubWebHook: FINER
 
 # --- Configuration des logs via script Groovy intégré --- #
 # jobs:
@@ -134,3 +135,12 @@ unclassified:
     endpoints:
       - apiUri: "https://api.github.com"
         name: "GitHub"
+        manageHooks: true
+        credentialsId: "github-hebergement"
+        webhookSecret: ${GITHUB_WEBHOOK_SECRET}
+        hooks:
+          - name: "hebergement-webhook"
+            events:
+              - "push"
+              - "pull_request"
+            repository: "bigmoletos/hebergement_serveur"

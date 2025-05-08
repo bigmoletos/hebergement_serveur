@@ -9,6 +9,11 @@ pipelineJob('infrastructure/hebergement/config-update') {
 
     properties {
         githubProjectUrl('https://github.com/bigmoletos/hebergement_serveur')
+        pipelineTriggers {
+            triggers {
+                githubPush()
+            }
+        }
     }
 
     definition {
@@ -31,17 +36,18 @@ pipelineJob('infrastructure/hebergement/config-update') {
                 }
             }
             scriptPath('ci-cd/jenkins/Jenkinsfile.hebergement')
-            lightweight(true)
+            lightweight(false)
         }
-    }
-
-    // Configure les déclencheurs
-    triggers {
-        githubPush()
     }
 
     // Autres propriétés du job
     properties {
         disableConcurrentBuilds()
+    }
+
+    // Configuration des logs
+    logRotator {
+        numToKeep(10)
+        artifactNumToKeep(5)
     }
 }

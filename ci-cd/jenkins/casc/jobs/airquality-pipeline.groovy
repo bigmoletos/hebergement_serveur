@@ -27,8 +27,14 @@ pipelineJob('applications/airquality/build-and-deploy') {
                             shallow(true)
                             timeout(10)
                         }
-                        // Ajout d'une extension pour le débogage
-                        wipeOutWorkspace()
+                        // Configuration pour marquer le répertoire comme sûr
+                        localBranch('main')
+                        // Configuration Git pour la sécurité
+                        configure { node ->
+                            node / 'extensions' / 'hudson.plugins.git.extensions.impl.GitSCMSourceDefaults' {
+                                'configuredDefaultGitTool'('Default')
+                            }
+                        }
                     }
                 }
             }
@@ -59,5 +65,21 @@ pipelineJob('applications/airquality/build-and-deploy') {
     logRotator {
         numToKeep(10)
         artifactNumToKeep(5)
+    }
+
+    // Configuration Git globale
+    wrappers {
+        configFileProvider {
+            configFiles {
+                configFile {
+                    targetLocation('gitconfig')
+                    variable('GIT_CONFIG')
+                    content('''
+[core]
+    safedirectory = /var/jenkins_home/workspace/applications/airquality/build-and-deploy@script/*
+''')
+                }
+            }
+        }
     }
 }
