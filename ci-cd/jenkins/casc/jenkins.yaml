@@ -113,6 +113,15 @@ tool:
     installations:
       - name: Default
         home: git
+        # Configuration Git pour marquer le répertoire Jenkins comme sûr
+        globalConfigName: "Jenkins"
+        globalConfigEmail: "jenkins@example.com"
+        additionalBehaviours:
+          - addToKnownHosts:
+              hostname: "gitlab.com"
+          - gitConfig:
+              key: "safe.directory"
+              value: "/var/jenkins_home/workspace/*"
 
 # --- Section Jobs au niveau racine --- #
 jobs:
@@ -135,12 +144,3 @@ unclassified:
     endpoints:
       - apiUri: "https://api.github.com"
         name: "GitHub"
-        manageHooks: true
-        credentialsId: "github-hebergement"
-        webhookSecret: ${GITHUB_WEBHOOK_SECRET}
-        hooks:
-          - name: "hebergement-webhook"
-            events:
-              - "push"
-              - "pull_request"
-            repository: "bigmoletos/hebergement_serveur"
