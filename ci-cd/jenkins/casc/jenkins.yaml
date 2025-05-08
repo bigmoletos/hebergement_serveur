@@ -41,9 +41,9 @@ jobs:
           ''')
         }
 
-        // Exécution périodique pour s'assurer que la configuration reste à jour
+        // Exécution périodique toutes les 30 minutes
         triggers {
-          timerTrigger('H/30 * * * *')
+          cron('H/30 * * * *')
         }
       }
 
