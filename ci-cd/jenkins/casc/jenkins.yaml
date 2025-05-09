@@ -113,7 +113,7 @@ jobs:
                 }
               }
             }
-            scriptPath('ci-cd/jenkins/Jenkinsfile')
+            scriptPath('ci-cd/Jenkinsfile')
             lightweight(false)
           }
         }

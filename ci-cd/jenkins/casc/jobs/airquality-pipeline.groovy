@@ -25,7 +25,7 @@ pipelineJob('applications/airquality/build-and-deploy') {
                 }
             }
             // Chemin du Jenkinsfile dans le dépôt projet_qualite_air (GitLab)
-            scriptPath('ci-cd/jenkins/Jenkinsfile')
+            scriptPath('ci-cd/Jenkinsfile')
             lightweight(true)
         }
     }
