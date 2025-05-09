@@ -35,3 +35,11 @@
     # Note: Dans docker-compose.yml, nous forcerons 'user: root' pour l'accès au socket,
     # mais l'image elle-même est plus standard ainsi.
     USER jenkins
+
+    # Copier les scripts d'init personnalisés
+    COPY jenkins/init.sh /usr/local/bin/init.sh
+    COPY jenkins/jenkins-support.sh /usr/local/bin/jenkins-support.sh
+    RUN chmod +x /usr/local/bin/init.sh /usr/local/bin/jenkins-support.sh
+
+    # Définir init.sh comme point d'entrée
+    ENTRYPOINT ["/usr/local/bin/init.sh"]

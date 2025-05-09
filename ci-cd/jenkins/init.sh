@@ -23,5 +23,11 @@ fix_permissions() {
 fix_permissions "/var/jenkins_home"
 fix_permissions "/var/jenkins_config"
 
+# --- Configuration safe.directory pour Git (évite les erreurs de sécurité lors du checkout) ---
+echo "Configuration des safe.directory Git pour Jenkins..."
+find /var/jenkins_home/workspace -type d -name "build-and-deploy@script*" | while read dir; do
+    git config --global --add safe.directory "$dir"
+done
+
 # Exécution du script de support Jenkins
 exec /usr/local/bin/jenkins-support.sh "$@"
