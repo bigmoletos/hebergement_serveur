@@ -26,7 +26,7 @@ fix_permissions "/var/jenkins_home"
 fix_permissions "/var/jenkins_config"
 
 echo "=== [INIT.SH] Configuration des safe.directory Git ==="
-find /var/jenkins_home/workspace -type d -name "build-and-deploy@script*" | while read dir; do
+find /var/jenkins_home/workspace -type d -path "*/build-and-deploy@script/*" | while read dir; do
     echo "Ajout du safe.directory : $dir"
     git config --global --add safe.directory "$dir"
 done
