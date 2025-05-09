@@ -1,9 +1,9 @@
-// Création des dossiers parents nécessaires
+// Ce job CI/CD déploie l'application de qualité de l'air à partir du dépôt GitLab projet_qualite_air
 folder('applications')
 folder('applications/airquality')
 
 pipelineJob('applications/airquality/build-and-deploy') {
-    description("Pipeline CI/CD pour l'application de qualité de l'air (déploiement complet)")
+    description("Pipeline CI/CD pour l'application de qualité de l'air (projet_qualite_air sur GitLab)")
 
     definition {
         cpsScm {
@@ -24,6 +24,7 @@ pipelineJob('applications/airquality/build-and-deploy') {
                     }
                 }
             }
+            // Chemin du Jenkinsfile dans le dépôt projet_qualite_air (GitLab)
             scriptPath('ci-cd/jenkins/Jenkinsfile')
             lightweight(true)
         }
