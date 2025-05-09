@@ -36,13 +36,9 @@ jobs:
             git config --global --add safe.directory '/var/jenkins_home/workspace/applications/airquality'
             git config --global --add safe.directory '/var/jenkins_home/workspace/applications/airquality/build-and-deploy@script'
 
-            # Ajout du chemin spécifique du workspace
-            WORKSPACE_PATH="/var/jenkins_home/workspace/applications/airquality/build-and-deploy@script"
-            for dir in "$WORKSPACE_PATH"/*; do
-              if [ -d "$dir" ]; then
-                echo "Adding workspace directory: $dir"
-                git config --global --add safe.directory "$dir"
-              fi
+            # Ajout dynamique des sous-dossiers Jenkins comme safe.directory
+            find /var/jenkins_home/workspace/applications/airquality/ -type d -name "build-and-deploy@script*" | while read dir; do
+              git config --global --add safe.directory "$dir"
             done
 
             # Affichage de la configuration
