@@ -1,9 +1,15 @@
+# =====================================================
+# Fichier docker-compose pour Jenkins avec Docker et CasC
+# - Déploie Jenkins avec accès au socket Docker
+# - Monte la configuration CasC et les scripts d'init
+# - Configure le reverse proxy Traefik
+# =====================================================
 services:
   jenkins:
-    image: jenkins-with-docker:latest
+    image: jenkins-with-docker:latest  # Image personnalisée avec Docker CLI et scripts d'init
     container_name: jenkins
     restart: unless-stopped
-    user: "root"
+    user: "root"  # Nécessaire pour accéder au socket Docker
     dns:
       - 8.8.8.8
       - 1.1.1.1
@@ -11,7 +17,7 @@ services:
       - ../../.env
     environment:
       - TZ=Europe/Paris
-      - CASC_JENKINS_CONFIG=/var/jenkins_config
+      - CASC_JENKINS_CONFIG=/var/jenkins_config  # Chemin de la config CasC
       - JENKINS_ADMIN_ID=${JENKINS_ADMIN_USER:-admin}
       - JENKINS_ADMIN_PASSWORD=${JENKINS_ADMIN_PASSWORD:-password}
       - GITLAB_URL=https://gitlab.com
@@ -20,18 +26,18 @@ services:
       - JENKINS_OPTS=--httpListenAddress=0.0.0.0
       - JAVA_OPTS=-Djava.awt.headless=true -Dhudson.DNSMultiCast.disabled=true -Dhudson.udp=-1 -Djenkins.model.Jenkins.crumbIssuerProxyCompat=true
     volumes:
-      - jenkins_data:/var/jenkins_home
-      - /var/run/docker.sock:/var/run/docker.sock
-      - ./casc:/var/jenkins_config
-      - ./casc/init.groovy.d:/var/jenkins_home/init.groovy.d
-      - ./plugins.txt:/usr/share/jenkins/ref/plugins.txt
-      - ../../ssh/airquality_server_key:/var/jenkins_secrets/airquality_server_key:ro
+      - jenkins_data:/var/jenkins_home  # Données persistantes Jenkins
+      - /var/run/docker.sock:/var/run/docker.sock  # Accès au démon Docker
+      - ./casc:/var/jenkins_config  # Config CasC
+      - ./casc/init.groovy.d:/var/jenkins_home/init.groovy.d  # Scripts Groovy d'init
+      - ./plugins.txt:/usr/share/jenkins/ref/plugins.txt  # Liste des plugins
+      - ../../ssh/airquality_server_key:/var/jenkins_secrets/airquality_server_key:ro  # Clé SSH
     networks:
       - traefik-public
     expose:
       - "8080"
     labels:
-      # Labels Traefik minimaux
+      # Labels Traefik pour le reverse proxy et la sécurité
       - "traefik.enable=true"
       - "traefik.docker.network=traefik-public"
       - "traefik.http.routers.jenkins.rule=Host(`jenkins.iaproject.fr`)"

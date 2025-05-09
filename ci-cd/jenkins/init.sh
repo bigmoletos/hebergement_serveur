@@ -1,4 +1,13 @@
 #!/bin/bash
+# =====================================================
+# Script d'initialisation du conteneur Jenkins
+# - Vérifie et corrige les permissions des dossiers critiques
+# - Ajoute dynamiquement tous les sous-dossiers Jenkins comme safe.directory pour Git
+# - Lance le script de support Jenkins
+# =====================================================
+# Auteur : [Votre nom]
+# Date : [Date de modification]
+# =====================================================
 set -e
 
 echo "=== [INIT.SH] Début de l'initialisation Jenkins ==="

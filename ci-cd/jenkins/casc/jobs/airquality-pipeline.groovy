@@ -1,3 +1,11 @@
+// =====================================================
+// Pipeline JobDSL : CI/CD pour l'application AirQuality
+// - Déploie l'application à partir du dépôt GitLab
+// - Déclencheur GitLab, gestion des logs, configuration globale
+// =====================================================
+// Auteur : [Votre nom]
+// Date : [Date de modification]
+// =====================================================
 // Ce job CI/CD déploie l'application de qualité de l'air à partir du dépôt GitLab projet_qualite_air
 folder('applications')
 folder('applications/airquality')

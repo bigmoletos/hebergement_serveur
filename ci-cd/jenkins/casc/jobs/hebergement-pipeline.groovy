@@ -1,3 +1,11 @@
+// =====================================================
+// Pipeline JobDSL : gestion de la configuration d'hébergement
+// - Surveille le dépôt GitHub d'hébergement
+// - Applique les mises à jour de configuration nécessaires
+// =====================================================
+// Auteur : [Votre nom]
+// Date : [Date de modification]
+// =====================================================
 // Création des dossiers parents nécessaires
 folder('infrastructure')
 folder('infrastructure/hebergement')

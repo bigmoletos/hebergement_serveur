@@ -86,7 +86,8 @@ execute_command "apt install -y \
     fail2ban \
     ca-certificates \
     gnupg \
-    lsb-release" "Installation des paquets essentiels"
+    lsb-release \
+    netcat-openbsd" "Installation des paquets essentiels"
 
 # =====================================================
 # Installation de Docker et Docker Compose

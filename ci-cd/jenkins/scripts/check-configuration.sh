@@ -2,6 +2,8 @@
 
 # =============================================================================
 # Script de vérification de la configuration Jenkins
+# - Vérifie la présence des variables d'environnement critiques
+# - Vérifie l'accès à Jenkins, GitLab, Docker Hub et la configuration du webhook
 # =============================================================================
 #
 # Description:

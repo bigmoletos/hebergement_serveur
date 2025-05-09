@@ -1,5 +1,15 @@
 // hebergement_serveur/ci-cd/jenkins/casc/jobs/preparation_image_docker_ansible.groovy
 
+// =====================================================
+// Pipeline JobDSL : préparation et push de l'image Docker Ansible
+// - Construit une image Docker personnalisée avec Ansible et Docker CLI
+// - Pousse l'image sur Docker Hub
+// - Utilisé pour les déploiements automatisés avec Ansible
+// =====================================================
+// Auteur : [Votre nom]
+// Date : [Date de modification]
+// =====================================================
+
 // Définit un nouveau Pipeline Job nommé 'preparation_image_docker_ansible'
 pipelineJob('preparation_image_docker_ansible') {
     description("Pipeline pour construire et pousser l\'image Docker personnalisée ansible-docker (via CasC JobDSL)")

@@ -1,4 +1,9 @@
 #!/bin/bash
+# =====================================================
+# Script de support pour le démarrage de Jenkins
+# - Vérifie la disponibilité du port 8080
+# - Lance Jenkins avec les options configurées
+# =====================================================
 set -e
 
 # Fonction pour vérifier si le port est disponible

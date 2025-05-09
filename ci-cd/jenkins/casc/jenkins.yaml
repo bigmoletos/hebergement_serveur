@@ -1,3 +1,12 @@
+# =====================================================
+# Fichier de configuration CasC Jenkins (Configuration as Code)
+# - Définition des jobs, dossiers, credentials et propriétés globales
+# - Utilise JobDSL pour la génération dynamique des jobs
+# - Centralise la configuration pour la maintenance CI/CD
+# =====================================================
+# Auteur : [Votre nom]
+# Date : [Date de modification]
+# =====================================================
 jenkins:
   systemMessage: "Jenkins minimal pour test CasC - LOGGING DEBUG"
   # securityRealm:

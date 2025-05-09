@@ -4,6 +4,15 @@ import com.dabsquared.gitlabjenkins.connection.GitLabConnectionConfig
 import java.util.logging.Level
 import java.util.logging.Logger
 
+// =====================================================
+// Script Groovy d'initialisation : connexion GitLab pour Jenkins
+// - Configure la connexion GitLab pour l'intégration continue
+// - Définit les timeouts, l'API token, et les logs de debug
+// =====================================================
+// Auteur : [Votre nom]
+// Date : [Date de modification]
+// =====================================================
+
 // Configuration souhaitée
 def gitlabConnectionName = "GitLab"
 def gitlabUrl = "https://gitlab.com"
