@@ -1,6 +1,8 @@
 #!/bin/bash
 set -e
 
+echo "=== [INIT.SH] Début de l'initialisation Jenkins ==="
+
 # Fonction pour vérifier et corriger les permissions
 fix_permissions() {
     local dir=$1
@@ -23,11 +25,13 @@ fix_permissions() {
 fix_permissions "/var/jenkins_home"
 fix_permissions "/var/jenkins_config"
 
-# --- Configuration safe.directory pour Git (évite les erreurs de sécurité lors du checkout) ---
-echo "Configuration des safe.directory Git pour Jenkins..."
+echo "=== [INIT.SH] Configuration des safe.directory Git ==="
 find /var/jenkins_home/workspace -type d -name "build-and-deploy@script*" | while read dir; do
+    echo "Ajout du safe.directory : $dir"
     git config --global --add safe.directory "$dir"
 done
+
+echo "=== [INIT.SH] Fin de l'initialisation, lancement de jenkins-support.sh ==="
 
 # Exécution du script de support Jenkins
 exec /usr/local/bin/jenkins-support.sh "$@"
