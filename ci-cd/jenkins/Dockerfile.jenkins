@@ -11,7 +11,8 @@
         apt-get install -y --no-install-recommends \
             ca-certificates \
             curl \
-            gnupg && \
+            gnupg \
+            netcat-openbsd && \
         # Créer le répertoire pour les clés apt
         install -m 0755 -d /etc/apt/keyrings && \
         # Télécharger la clé GPG de Docker et la stocker

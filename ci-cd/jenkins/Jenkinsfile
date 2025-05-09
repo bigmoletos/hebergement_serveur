@@ -328,43 +328,37 @@ pipeline {
 
     post {
         always {
-            node('any') {
-                script {
-                    // Nettoyage des conteneurs et images
-                    sh '''
-                        docker rm -f api_ihm_test || true
-                        docker rm -f api_ihm || true
-                        docker system prune -f || true
-                    '''
+            script {
+                // Nettoyage des conteneurs et images
+                sh '''
+                    docker rm -f api_ihm_test || true
+                    docker rm -f api_ihm || true
+                    docker system prune -f || true
+                '''
 
-                    // Nettoyage des fichiers de configuration
-                    sh """
-                        rm -rf ${WORKSPACE}/.docker || true
-                        rm -rf ${WORKSPACE}/docker-config.json || true
-                    """
+                // Nettoyage des fichiers de configuration
+                sh """
+                    rm -rf ${WORKSPACE}/.docker || true
+                    rm -rf ${WORKSPACE}/docker-config.json || true
+                """
 
-                    // Notification du statut
-                    emailext (
-                        subject: "Build ${currentBuild.result}: Job '${env.JOB_NAME} [${env.BUILD_NUMBER}]'",
-                        body: """<p>Build ${currentBuild.result}: Job '${env.JOB_NAME} [${env.BUILD_NUMBER}]':</p>
-                        <p>Consultez les détails du build: <a href='${env.BUILD_URL}'>${env.BUILD_URL}</a></p>""",
-                        recipientProviders: [[$class: 'DevelopersRecipientProvider']]
-                    )
-                }
+                // Notification du statut
+                emailext (
+                    subject: "Build ${currentBuild.result}: Job '${env.JOB_NAME} [${env.BUILD_NUMBER}]'",
+                    body: """<p>Build ${currentBuild.result}: Job '${env.JOB_NAME} [${env.BUILD_NUMBER}]':</p>
+                    <p>Consultez les détails du build: <a href='${env.BUILD_URL}'>${env.BUILD_URL}</a></p>""",
+                    recipientProviders: [[$class: 'DevelopersRecipientProvider']]
+                )
             }
         }
         success {
-            node('any') {
-                script {
-                    echo "Pipeline exécuté avec succès"
-                }
+            script {
+                echo "Pipeline exécuté avec succès"
             }
         }
         failure {
-            node('any') {
-                script {
-                    echo "Échec du pipeline"
-                }
+            script {
+                echo "Échec du pipeline"
             }
         }
     }
