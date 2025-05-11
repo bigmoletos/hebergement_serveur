@@ -9,6 +9,32 @@
 # =====================================================
 jenkins:
   systemMessage: "Jenkins minimal pour test CasC - LOGGING DEBUG"
+  numExecutors: 2
+  mode: NORMAL
+  scmCheckoutRetryCount: 3
+  labelString: "master"
+  # Configuration du nœud principal
+  nodes:
+    - permanent:
+        name: "master"
+        remoteFS: "/var/jenkins_home"
+        numExecutors: 2
+        labelString: "master"
+        mode: NORMAL
+        launcher:
+          ssh:
+            host: "localhost"
+            port: 22
+            credentialsId: "jenkins-ssh"
+        retentionStrategy:
+          always: {}
+        nodeProperties:
+          - envVars:
+              env:
+                - key: "JENKINS_HOME"
+                  value: "/var/jenkins_home"
+                - key: "JENKINS_SLAVE_AGENT_PORT"
+                  value: "50000"
   # securityRealm:
   #   local:
   #     allowsSignup: false
@@ -135,6 +161,15 @@ credentials:
   system:
     domainCredentials:
       - credentials:
+          # --- Credentials SSH pour Jenkins --- #
+          - basicSSHUserPrivateKey:
+              scope: SYSTEM
+              id: "jenkins-ssh"
+              username: "jenkins"
+              privateKeySource:
+                directEntry:
+                  privateKey: ${JENKINS_SSH_PRIVATE_KEY}
+              description: "SSH credentials for Jenkins master node"
           # --- Credentials Standard Jenkins --- #
           # Token GitLab pour la connexion Jenkins et le scan des dépôts (en tant que GitLab API Token)
           # Décommenté car utilisé par le script Groovy gitlab-config.groovy

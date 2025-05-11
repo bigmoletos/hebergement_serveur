@@ -1,8 +1,16 @@
 pipeline {
-    agent any
+    agent {
+        label 'master'
+    }
 
     environment {
         GITHUB_CREDENTIALS = credentials('github-hebergement')
+        // Configuration des services
+        TRAEFIK_ENABLED = true
+        PROMETHEUS_ENABLED = true
+        DOCKER_ENABLED = true
+        GIT_ENABLED = true
+        JENKINS_HOME = '/var/jenkins_home'
     }
 
     stages {
@@ -25,6 +33,49 @@ pipeline {
                             groovy -cp /var/jenkins_home/war/WEB-INF/lib/jenkins-core-*.jar:. -e "evaluate(new File('$file'))" || true
                         done
                     '''
+                }
+            }
+        }
+
+        stage('Check Infrastructure Services') {
+            steps {
+                script {
+                    echo "Checking infrastructure services status..."
+
+                    // Vérification de Traefik
+                    if (env.TRAEFIK_ENABLED == 'true') {
+                        sh '''
+                            echo "Checking Traefik..."
+                            docker ps | grep traefik || echo "Traefik not running"
+                            curl -s http://localhost:8080/api/rawdata || echo "Traefik API not accessible"
+                        '''
+                    }
+
+                    // Vérification de Prometheus
+                    if (env.PROMETHEUS_ENABLED == 'true') {
+                        sh '''
+                            echo "Checking Prometheus..."
+                            docker ps | grep prometheus || echo "Prometheus not running"
+                            curl -s http://localhost:9090/-/healthy || echo "Prometheus not healthy"
+                        '''
+                    }
+
+                    // Vérification de Docker
+                    if (env.DOCKER_ENABLED == 'true') {
+                        sh '''
+                            echo "Checking Docker..."
+                            docker info || echo "Docker not accessible"
+                            docker network ls | grep traefik-public || echo "Traefik network not found"
+                        '''
+                    }
+
+                    // Vérification de Git
+                    if (env.GIT_ENABLED == 'true') {
+                        sh '''
+                            echo "Checking Git configuration..."
+                            git config --list | grep safe.directory || echo "No safe.directory configured"
+                        '''
+                    }
                 }
             }
         }
@@ -63,10 +114,10 @@ pipeline {
             cleanWs()
         }
         success {
-            echo 'Configuration updated successfully!'
+            echo 'Infrastructure configuration updated successfully!'
         }
         failure {
-            echo 'Failed to update configuration!'
+            echo 'Failed to update infrastructure configuration!'
         }
     }
 }
