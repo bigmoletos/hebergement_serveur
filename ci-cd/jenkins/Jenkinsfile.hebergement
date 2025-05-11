@@ -16,65 +16,69 @@ pipeline {
     stages {
         stage('Validate Configuration') {
             steps {
-                script {
-                    echo "Validating Jenkins configuration files..."
-                    // Vérification de la syntaxe des fichiers yaml
-                    sh '''
-                        for file in $(find . -name "*.yaml" -o -name "*.yml"); do
-                            echo "Validating $file"
-                            yamllint "$file" || true
-                        done
-                    '''
+                node('master') {
+                    script {
+                        echo "Validating Jenkins configuration files..."
+                        // Vérification de la syntaxe des fichiers yaml
+                        sh '''
+                            for file in $(find . -name "*.yaml" -o -name "*.yml"); do
+                                echo "Validating $file"
+                                yamllint "$file" || true
+                            done
+                        '''
 
-                    // Vérification des fichiers Groovy
-                    sh '''
-                        for file in $(find . -name "*.groovy"); do
-                            echo "Checking $file"
-                            groovy -cp /var/jenkins_home/war/WEB-INF/lib/jenkins-core-*.jar:. -e "evaluate(new File('$file'))" || true
-                        done
-                    '''
+                        // Vérification des fichiers Groovy
+                        sh '''
+                            for file in $(find . -name "*.groovy"); do
+                                echo "Checking $file"
+                                groovy -cp /var/jenkins_home/war/WEB-INF/lib/jenkins-core-*.jar:. -e "evaluate(new File('$file'))" || true
+                            done
+                        '''
+                    }
                 }
             }
         }
 
         stage('Check Infrastructure Services') {
             steps {
-                script {
-                    echo "Checking infrastructure services status..."
+                node('master') {
+                    script {
+                        echo "Checking infrastructure services status..."
 
-                    // Vérification de Traefik
-                    if (env.TRAEFIK_ENABLED == 'true') {
-                        sh '''
-                            echo "Checking Traefik..."
-                            docker ps | grep traefik || echo "Traefik not running"
-                            curl -s http://localhost:8080/api/rawdata || echo "Traefik API not accessible"
-                        '''
-                    }
+                        // Vérification de Traefik
+                        if (env.TRAEFIK_ENABLED == 'true') {
+                            sh '''
+                                echo "Checking Traefik..."
+                                docker ps | grep traefik || echo "Traefik not running"
+                                curl -s http://localhost:8080/api/rawdata || echo "Traefik API not accessible"
+                            '''
+                        }
 
-                    // Vérification de Prometheus
-                    if (env.PROMETHEUS_ENABLED == 'true') {
-                        sh '''
-                            echo "Checking Prometheus..."
-                            docker ps | grep prometheus || echo "Prometheus not running"
-                            curl -s http://localhost:9090/-/healthy || echo "Prometheus not healthy"
-                        '''
-                    }
+                        // Vérification de Prometheus
+                        if (env.PROMETHEUS_ENABLED == 'true') {
+                            sh '''
+                                echo "Checking Prometheus..."
+                                docker ps | grep prometheus || echo "Prometheus not running"
+                                curl -s http://localhost:9090/-/healthy || echo "Prometheus not healthy"
+                            '''
+                        }
 
-                    // Vérification de Docker
-                    if (env.DOCKER_ENABLED == 'true') {
-                        sh '''
-                            echo "Checking Docker..."
-                            docker info || echo "Docker not accessible"
-                            docker network ls | grep traefik-public || echo "Traefik network not found"
-                        '''
-                    }
+                        // Vérification de Docker
+                        if (env.DOCKER_ENABLED == 'true') {
+                            sh '''
+                                echo "Checking Docker..."
+                                docker info || echo "Docker not accessible"
+                                docker network ls | grep traefik-public || echo "Traefik network not found"
+                            '''
+                        }
 
-                    // Vérification de Git
-                    if (env.GIT_ENABLED == 'true') {
-                        sh '''
-                            echo "Checking Git configuration..."
-                            git config --list | grep safe.directory || echo "No safe.directory configured"
-                        '''
+                        // Vérification de Git
+                        if (env.GIT_ENABLED == 'true') {
+                            sh '''
+                                echo "Checking Git configuration..."
+                                git config --list | grep safe.directory || echo "No safe.directory configured"
+                            '''
+                        }
                     }
                 }
             }
@@ -82,13 +86,15 @@ pipeline {
 
         stage('Apply Configuration') {
             steps {
-                script {
-                    echo "Applying configuration changes..."
-                    // Recharger la configuration Jenkins si nécessaire
-                    def changes = sh(script: 'git diff --name-only HEAD HEAD~1 | grep -E ".*\\.(yaml|yml|groovy)$" || true', returnStdout: true).trim()
-                    if (changes) {
-                        echo "Configuration files changed, reloading Jenkins..."
-                        jenkins.model.Jenkins.instance.reload()
+                node('master') {
+                    script {
+                        echo "Applying configuration changes..."
+                        // Recharger la configuration Jenkins si nécessaire
+                        def changes = sh(script: 'git diff --name-only HEAD HEAD~1 | grep -E ".*\\.(yaml|yml|groovy)$" || true', returnStdout: true).trim()
+                        if (changes) {
+                            echo "Configuration files changed, reloading Jenkins..."
+                            jenkins.model.Jenkins.instance.reload()
+                        }
                     }
                 }
             }
@@ -96,13 +102,15 @@ pipeline {
 
         stage('Update Services') {
             steps {
-                script {
-                    echo "Updating services if needed..."
-                    // Vérifier les changements dans les services
-                    def serviceChanges = sh(script: 'git diff --name-only HEAD HEAD~1 | grep -E "docker-compose.*\\.ya?ml$" || true', returnStdout: true).trim()
-                    if (serviceChanges) {
-                        echo "Docker services configuration changed, updating..."
-                        sh 'docker compose -f docker-compose.yml up -d --remove-orphans'
+                node('master') {
+                    script {
+                        echo "Updating services if needed..."
+                        // Vérifier les changements dans les services
+                        def serviceChanges = sh(script: 'git diff --name-only HEAD HEAD~1 | grep -E "docker-compose.*\\.ya?ml$" || true', returnStdout: true).trim()
+                        if (serviceChanges) {
+                            echo "Docker services configuration changed, updating..."
+                            sh 'docker compose -f docker-compose.yml up -d --remove-orphans'
+                        }
                     }
                 }
             }
@@ -111,29 +119,35 @@ pipeline {
 
     post {
         always {
-            script {
-                // Nettoyage des conteneurs et images
-                sh '''
-                    docker rm -f api_ihm_test || true
-                    docker rm -f api_ihm || true
-                    docker system prune -f || true
-                '''
+            node('master') {
+                script {
+                    // Nettoyage des conteneurs et images
+                    sh '''
+                        docker rm -f api_ihm_test || true
+                        docker rm -f api_ihm || true
+                        docker system prune -f || true
+                    '''
 
-                // Nettoyage des fichiers de configuration
-                sh """
-                    rm -rf ${WORKSPACE}/.docker || true
-                    rm -rf ${WORKSPACE}/docker-config.json || true
-                """
+                    // Nettoyage des fichiers de configuration
+                    sh """
+                        rm -rf ${WORKSPACE}/.docker || true
+                        rm -rf ${WORKSPACE}/docker-config.json || true
+                    """
+                }
             }
         }
         success {
-            script {
-                echo 'Infrastructure configuration updated successfully!'
+            node('master') {
+                script {
+                    echo 'Infrastructure configuration updated successfully!'
+                }
             }
         }
         failure {
-            script {
-                echo 'Failed to update infrastructure configuration!'
+            node('master') {
+                script {
+                    echo 'Failed to update infrastructure configuration!'
+                }
             }
         }
     }
