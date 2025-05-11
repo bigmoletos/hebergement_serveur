@@ -111,13 +111,30 @@ pipeline {
 
     post {
         always {
-            cleanWs()
+            script {
+                // Nettoyage des conteneurs et images
+                sh '''
+                    docker rm -f api_ihm_test || true
+                    docker rm -f api_ihm || true
+                    docker system prune -f || true
+                '''
+
+                // Nettoyage des fichiers de configuration
+                sh """
+                    rm -rf ${WORKSPACE}/.docker || true
+                    rm -rf ${WORKSPACE}/docker-config.json || true
+                """
+            }
         }
         success {
-            echo 'Infrastructure configuration updated successfully!'
+            script {
+                echo 'Infrastructure configuration updated successfully!'
+            }
         }
         failure {
-            echo 'Failed to update infrastructure configuration!'
+            script {
+                echo 'Failed to update infrastructure configuration!'
+            }
         }
     }
 }
