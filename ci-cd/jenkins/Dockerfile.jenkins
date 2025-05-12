@@ -12,7 +12,10 @@
             ca-certificates \
             curl \
             gnupg \
-            netcat-openbsd && \
+            netcat-openbsd \
+            python3 \
+            python3-pip \
+            python3-venv && \
         # Créer le répertoire pour les clés apt
         install -m 0755 -d /etc/apt/keyrings && \
         # Télécharger la clé GPG de Docker et la stocker
@@ -28,9 +31,14 @@
         apt-get update && \
         # Installer Docker CLI
         apt-get install -y --no-install-recommends docker-ce-cli && \
+        # Créer un lien symbolique pour python
+        ln -s /usr/bin/python3 /usr/bin/python && \
         # Nettoyage
         apt-get clean && \
         rm -rf /var/lib/apt/lists/*
+
+    # Installer les dépendances Python globales
+    RUN pip3 install --no-cache-dir pytest pytest-cov
 
     # Copier les scripts d'init personnalisés (sous root)
     COPY init.sh /usr/local/bin/init.sh

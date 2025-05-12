@@ -7,11 +7,11 @@ global:
 entryPoints:
   web:
     address: ":80"
-    # http:
-    #   redirections:
-    #     entryPoint:
-    #       to: websecure
-    #       scheme: https
+    http:
+      redirections:
+        entryPoint:
+          to: websecure
+          scheme: https
   websecure:
     address: ":443"
     http:
@@ -25,7 +25,7 @@ certificatesResolvers:
   letsencrypt:
     acme:
       email: contact@iaproject.fr
-      storage: /letsencrypt/acme.json
+      storage: /etc/traefik/acme/acme.json
       httpChallenge:
         entryPoint: web
 
@@ -42,7 +42,7 @@ providers:
 # Configuration du dashboard
 api:
   dashboard: true
-  insecure: true
+  insecure: false
   debug: true
 
 # Configuration des logs
