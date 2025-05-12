@@ -1,22 +1,47 @@
-pipeline {
-    agent {
-        label 'master'
-    }
+#!/usr/bin/env groovy
 
-    environment {
-        GITHUB_CREDENTIALS = credentials('github-hebergement')
-        // Configuration des services
-        TRAEFIK_ENABLED = true
-        PROMETHEUS_ENABLED = true
-        DOCKER_ENABLED = true
-        GIT_ENABLED = true
-        JENKINS_HOME = '/var/jenkins_home'
-    }
+// Pipeline pour la gestion de l'infrastructure
+def call() {
+    pipeline {
+        agent any
 
-    stages {
-        stage('Validate Configuration') {
-            steps {
-                node('master') {
+        options {
+            buildDiscarder(logRotator(numToKeepStr: '10'))
+            disableConcurrentBuilds()
+            timestamps()
+        }
+
+        environment {
+            GITHUB_CREDENTIALS = credentials('github-hebergement')
+            // Configuration des services
+            TRAEFIK_ENABLED = true
+            PROMETHEUS_ENABLED = true
+            DOCKER_ENABLED = true
+            GIT_ENABLED = true
+            JENKINS_HOME = '/var/jenkins_home'
+        }
+
+        stages {
+            stage('Initialize') {
+                agent { label 'master' }
+                steps {
+                    script {
+                        // Configuration Git
+                        sh '''
+                            git config --global core.longpaths true
+                            git config --global http.sslVerify false
+                            git config --global --add safe.directory "${WORKSPACE}"
+                        '''
+
+                        echo "Current workspace is ${WORKSPACE}"
+                        echo "Jenkins home is ${JENKINS_HOME}"
+                    }
+                }
+            }
+
+            stage('Validate Configuration') {
+                agent { label 'master' }
+                steps {
                     script {
                         echo "Validating Jenkins configuration files..."
                         // Vérification de la syntaxe des fichiers yaml
@@ -31,17 +56,16 @@ pipeline {
                         sh '''
                             for file in $(find . -name "*.groovy"); do
                                 echo "Checking $file"
-                                groovy -cp /var/jenkins_home/war/WEB-INF/lib/jenkins-core-*.jar:. -e "evaluate(new File('$file'))" || true
+                                groovy -cp ${JENKINS_HOME}/war/WEB-INF/lib/jenkins-core-*.jar:. -e "evaluate(new File('$file'))" || true
                             done
                         '''
                     }
                 }
             }
-        }
 
-        stage('Check Infrastructure Services') {
-            steps {
-                node('master') {
+            stage('Check Infrastructure Services') {
+                agent { label 'master' }
+                steps {
                     script {
                         echo "Checking infrastructure services status..."
 
@@ -82,11 +106,10 @@ pipeline {
                     }
                 }
             }
-        }
 
-        stage('Apply Configuration') {
-            steps {
-                node('master') {
+            stage('Apply Configuration') {
+                agent { label 'master' }
+                steps {
                     script {
                         echo "Applying configuration changes..."
                         // Recharger la configuration Jenkins si nécessaire
@@ -98,11 +121,10 @@ pipeline {
                     }
                 }
             }
-        }
 
-        stage('Update Services') {
-            steps {
-                node('master') {
+            stage('Update Services') {
+                agent { label 'master' }
+                steps {
                     script {
                         echo "Updating services if needed..."
                         // Vérifier les changements dans les services
@@ -115,40 +137,51 @@ pipeline {
                 }
             }
         }
-    }
 
-    post {
-        always {
-            node('master') {
-                script {
-                    // Nettoyage des conteneurs et images
-                    sh '''
-                        docker rm -f api_ihm_test || true
-                        docker rm -f api_ihm || true
-                        docker system prune -f || true
-                    '''
+        post {
+            always {
+                node('master') {
+                    script {
+                        // Nettoyage des conteneurs et images
+                        sh '''
+                            docker rm -f api_ihm_test || true
+                            docker rm -f api_ihm || true
+                            docker system prune -f || true
+                        '''
 
-                    // Nettoyage des fichiers de configuration
-                    sh """
-                        rm -rf ${WORKSPACE}/.docker || true
-                        rm -rf ${WORKSPACE}/docker-config.json || true
-                    """
+                        // Nettoyage des fichiers de configuration
+                        sh """
+                            rm -rf ${WORKSPACE}/.docker || true
+                            rm -rf ${WORKSPACE}/docker-config.json || true
+                        """
+
+                        // Notification par email
+                        emailext(
+                            subject: "Pipeline ${currentBuild.result}: ${env.JOB_NAME} [${env.BUILD_NUMBER}]",
+                            body: """<p>Pipeline ${currentBuild.result}: Job '${env.JOB_NAME} [${env.BUILD_NUMBER}]':</p>
+                            <p>Consultez les détails du build: <a href='${env.BUILD_URL}'>${env.BUILD_URL}</a></p>""",
+                            recipientProviders: [[$class: 'DevelopersRecipientProvider']]
+                        )
+                    }
                 }
             }
-        }
-        success {
-            node('master') {
-                script {
-                    echo 'Infrastructure configuration updated successfully!'
+            success {
+                node('master') {
+                    script {
+                        echo 'Infrastructure configuration updated successfully!'
+                    }
                 }
             }
-        }
-        failure {
-            node('master') {
-                script {
-                    echo 'Failed to update infrastructure configuration!'
+            failure {
+                node('master') {
+                    script {
+                        echo 'Failed to update infrastructure configuration!'
+                    }
                 }
             }
         }
     }
 }
+
+// Appel du pipeline
+call()
