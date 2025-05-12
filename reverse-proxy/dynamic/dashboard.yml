@@ -1,18 +1,19 @@
 http:
   routers:
     dashboard:
-      entryPoints:
+      rule: "Host(`traefik.airquality.iaproject.fr`)"
+      entrypoints:
         - websecure
-      rule: "Host(`traefik.iaproject.fr`)"
       service: api@internal
-      middlewares:
-        - auth-basic@file
-        - secure-headers@file
-        - rate-limit@file
-        - ip-whitelist@file
       tls:
         certResolver: letsencrypt
-        options: default
+      middlewares:
+        - auth
+  middlewares:
+    auth:
+      basicauth:
+        users:
+          - "admin:$apr1$H6uskkkW$IgXLP6ewTrSuBkTrqE8wj/"
 
 tls:
   options:

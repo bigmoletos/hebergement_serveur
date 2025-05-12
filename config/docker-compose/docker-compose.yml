@@ -1,0 +1,31 @@
+version: '3'
+
+services:
+  traefik:
+    image: traefik:v2.10
+    container_name: traefik
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    networks:
+      - proxy
+      - traefik_public
+    ports:
+      - "80:80"
+      - "443:443"
+      - "2222:2222"
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./reverse-proxy/traefik.prod.yml:/etc/traefik/traefik.yml:ro
+      - ./reverse-proxy/dynamic:/etc/traefik/dynamic:ro
+      - ./reverse-proxy/acme:/etc/traefik/acme:rw
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=proxy"
+
+networks:
+  proxy:
+    external: true
+  traefik_public:
+    external: true
