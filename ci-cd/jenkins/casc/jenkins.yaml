@@ -4,8 +4,8 @@
 # - Utilise JobDSL pour la génération dynamique des jobs
 # - Centralise la configuration pour la maintenance CI/CD
 # =====================================================
-# Auteur : [Votre nom]
-# Date : [Date de modification]
+# Auteur : [franck Desmedt]
+# Date : [avril 2025]
 # =====================================================
 jenkins:
   systemMessage: "Jenkins minimal pour test CasC - LOGGING DEBUG"
