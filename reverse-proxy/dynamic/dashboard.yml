@@ -11,6 +11,7 @@ http:
         - rate-limit@file
         - ip-whitelist@file
       tls:
+        certResolver: letsencrypt
         options: default
 
 tls:
