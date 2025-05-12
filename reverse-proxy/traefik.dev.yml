@@ -1,0 +1,28 @@
+global:
+  checkNewVersion: true
+  sendAnonymousUsage: false
+
+# Configuration des points d'entrée
+entryPoints:
+  web:
+    address: ":80"
+
+# Configuration des providers
+providers:
+  docker:
+    endpoint: "unix:///var/run/docker.sock"
+    exposedByDefault: false
+    network: proxy
+  file:
+    directory: "/etc/traefik/dynamic"
+    watch: true
+
+# Configuration du dashboard
+api:
+  dashboard: true
+  insecure: true  # Uniquement pour le développement
+
+# Configuration des logs
+log:
+  level: DEBUG
+  format: common

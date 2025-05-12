@@ -1,0 +1,50 @@
+http:
+  routers:
+    airquality:
+      rule: "Host(`airquality.localhost`)"
+      entryPoints:
+        - "web"
+      service: "airquality"
+
+    grafana:
+      rule: "Host(`grafana.localhost`)"
+      entryPoints:
+        - "web"
+      service: "grafana"
+
+    prometheus:
+      rule: "Host(`prometheus.localhost`)"
+      entryPoints:
+        - "web"
+      service: "prometheus"
+
+    portainer:
+      rule: "Host(`portainer.localhost`)"
+      entryPoints:
+        - "web"
+      service: "portainer"
+
+  services:
+    airquality:
+      loadBalancer:
+        servers:
+          - url: "http://airquality:8000"
+        healthCheck:
+          path: "/health"
+          interval: "10s"
+          timeout: "5s"
+
+    grafana:
+      loadBalancer:
+        servers:
+          - url: "http://grafana:3000"
+
+    prometheus:
+      loadBalancer:
+        servers:
+          - url: "http://prometheus:9090"
+
+    portainer:
+      loadBalancer:
+        servers:
+          - url: "http://portainer:9000"

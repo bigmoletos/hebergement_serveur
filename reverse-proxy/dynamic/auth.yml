@@ -11,8 +11,8 @@ http:
 certificatesResolvers:
   letsencrypt:
     acme:
-      email: admin@iaproject.fr
-      storage: /letsencrypt/acme.json  # Ce chemin doit correspondre au volume
+      email: contact@iaproject.fr
+      storage: /etc/traefik/acme/acme.json
       httpChallenge:
         entryPoint: web
 

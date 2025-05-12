@@ -1,0 +1,58 @@
+http:
+  routers:
+    airquality:
+      rule: "Host(`airquality.iaproject.fr`)"
+      entryPoints:
+        - "websecure"
+      service: "airquality"
+      tls:
+        certResolver: "letsencrypt"
+
+    grafana:
+      rule: "Host(`grafana.iaproject.fr`)"
+      entryPoints:
+        - "websecure"
+      service: "grafana"
+      tls:
+        certResolver: "letsencrypt"
+
+    prometheus:
+      rule: "Host(`prometheus.iaproject.fr`)"
+      entryPoints:
+        - "websecure"
+      service: "prometheus"
+      tls:
+        certResolver: "letsencrypt"
+
+    portainer:
+      rule: "Host(`portainer.iaproject.fr`)"
+      entryPoints:
+        - "websecure"
+      service: "portainer"
+      tls:
+        certResolver: "letsencrypt"
+
+  services:
+    airquality:
+      loadBalancer:
+        servers:
+          - url: "http://airquality:8000"  # Port à ajuster selon votre configuration
+        healthCheck:
+          path: "/health"
+          interval: "10s"
+          timeout: "5s"
+
+    grafana:
+      loadBalancer:
+        servers:
+          - url: "http://grafana:3000"
+
+    prometheus:
+      loadBalancer:
+        servers:
+          - url: "http://prometheus:9090"
+
+    portainer:
+      loadBalancer:
+        servers:
+          - url: "http://portainer:9000"

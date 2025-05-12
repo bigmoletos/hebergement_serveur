@@ -1,0 +1,24 @@
+services:
+  traefik:
+    image: traefik:v3.0
+    container_name: traefik-dev
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    ports:
+      - "80:80"  # HTTP uniquement pour le développement
+    networks:
+      - proxy
+      - traefik-public
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./traefik.dev.yml:/etc/traefik/traefik.yml:ro
+      - ./dynamic:/etc/traefik/dynamic
+    environment:
+      - TZ=Europe/Paris
+
+networks:
+  proxy:
+    external: true
+  traefik-public:
+    external: true
