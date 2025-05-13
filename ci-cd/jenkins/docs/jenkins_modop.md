@@ -66,6 +66,16 @@ Si vous n'en avez pas :
 - Le réseau externe `traefik-public` doit exister (`docker network create traefik-public` si ce n'est pas déjà fait par une autre stack).
 
 ### 2. Démarrage du service
+
+copie des fichiers sur le serveur
+
+```bash
+ scp -i "ssh/airquality_server_key" .env INSTALL_SERVEUR.md install_server.sh pre-requis.sh configure_ovh_dns.sh .ovhconfig debug_install.md user@192.168.1.134:/hebergement_serveur/ ;
+ scp -i ".\ssh\airquality_server_key" -r "ansible/" user@192.168.1.134:/hebergement_serveur ;
+ scp -i ".\ssh\airquality_server_key" -r "ci-cd/" user@192.168.1.134:/hebergement_serveur ;
+ scp -i ".\ssh\airquality_server_key" -r "reverse-proxy/" user@192.168.1.134:/hebergement_serveur
+```
+
 1.  **Se placer dans le répertoire Jenkins** :
     ```bash
     cd /hebergement_serveur/ci-cd/jenkins
