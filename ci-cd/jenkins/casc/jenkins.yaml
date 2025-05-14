@@ -241,6 +241,18 @@ credentials:
               password: ${GITHUB_PASSWORD}
               description: "GitHub Credentials pour le dépôt d'hébergement"
 
+          # Credentials OVH pour le DNS
+          - string:
+              scope: GLOBAL
+              id: "OVH_DNS_ZONE"
+              secret: ${OVH_DNS_ZONE}
+              description: "Zone DNS OVH pour le déploiement"
+          - string:
+              scope: GLOBAL
+              id: "OVH_DNS_SUBDOMAIN"
+              secret: ${OVH_DNS_SUBDOMAIN}
+              description: "Sous-domaine OVH pour le déploiement"
+
 # --- Section Tool au niveau racine --- #
 tool:
   git:
