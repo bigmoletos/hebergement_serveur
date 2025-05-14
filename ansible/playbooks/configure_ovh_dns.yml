@@ -1,0 +1,57 @@
+---
+- name: Configure OVH DNS records
+  hosts: localhost
+  gather_facts: false
+  vars:
+    ovh_endpoint: "ovh-eu"
+    ovh_domain: "iaproject.fr"
+    server_ip: "{{ hostvars['server']['ansible_host'] }}"
+
+  tasks:
+    - name: Set up OVH DNS for main domain
+      community.general.ovh_dns_record:
+        state: present
+        domain: "{{ ovh_domain }}"
+        name: "airquality"
+        type: A
+        value: "{{ server_ip }}"
+        endpoint: "{{ ovh_endpoint }}"
+        application_key: "{{ ovh_application_key }}"
+        application_secret: "{{ ovh_application_secret }}"
+        consumer_key: "{{ ovh_consumer_key }}"
+
+    - name: Set up OVH DNS for API subdomain
+      community.general.ovh_dns_record:
+        state: present
+        domain: "{{ ovh_domain }}"
+        name: "api.airquality"
+        type: A
+        value: "{{ server_ip }}"
+        endpoint: "{{ ovh_endpoint }}"
+        application_key: "{{ ovh_application_key }}"
+        application_secret: "{{ ovh_application_secret }}"
+        consumer_key: "{{ ovh_consumer_key }}"
+
+    - name: Add CNAME record for www
+      community.general.ovh_dns_record:
+        state: present
+        domain: "{{ ovh_domain }}"
+        name: "www.airquality"
+        type: CNAME
+        value: "airquality.{{ ovh_domain }}."
+        endpoint: "{{ ovh_endpoint }}"
+        application_key: "{{ ovh_application_key }}"
+        application_secret: "{{ ovh_application_secret }}"
+        consumer_key: "{{ ovh_consumer_key }}"
+
+    - name: Add CAA records for Let's Encrypt
+      community.general.ovh_dns_record:
+        state: present
+        domain: "{{ ovh_domain }}"
+        name: "airquality"
+        type: CAA
+        value: "0 issue \"letsencrypt.org\""
+        endpoint: "{{ ovh_endpoint }}"
+        application_key: "{{ ovh_application_key }}"
+        application_secret: "{{ ovh_application_secret }}"
+        consumer_key: "{{ ovh_consumer_key }}"
