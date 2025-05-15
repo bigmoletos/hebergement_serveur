@@ -196,10 +196,10 @@ credentials:
               description: "GitLab Token (Username/Password pour checkout HTTPS - pour AirQuality Jenkinsfile)"
           # Identifiants Docker Hub utilisés par le Jenkinsfile AirQuality
           - usernamePassword:
-              scope: GLOBAL # Ou SYSTEM
-              id: "dockerhub_airquality" # Nom spécifique requis par le Jenkinsfile
-              username: ${DOCKER_USERNAME} # Assurez-vous que c'est le bon username pour cet identifiant
-              password: ${DOCKER_PASSWORD} # Correction: Utilisation de la variable d'environnement
+              scope: GLOBAL
+              id: "dockerhub_airquality"
+              username: ${DOCKER_USERNAME}
+              password: ${DOCKER_PASSWORD}
               description: "Docker Hub Credentials (pour AirQuality Jenkinsfile)"
           # Identifiants BDD pour Ansible
           - usernamePassword:
@@ -233,12 +233,12 @@ credentials:
               password: ${BDD_USER_ADMIN_PASSWORD}
               description: "BDD User Admin (pour AirQuality Ansible)"
 
-          # --- Credentials GitHub pour l'hébergement --- #
+          # Credentials GitHub pour l'hébergement
           - usernamePassword:
               scope: GLOBAL
               id: "github-hebergement"
-              username: ${GITHUB_USER}
-              password: ${GITHUB_PASSWORD}
+              username: ${GITHUB_USERNAME}
+              password: ${GITHUB_TOKEN}
               description: "GitHub Credentials pour le dépôt d'hébergement"
 
           # Credentials OVH pour le DNS
