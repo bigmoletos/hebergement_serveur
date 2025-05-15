@@ -44,7 +44,7 @@ pipelineJob('infrastructure/hebergement/config-update') {
                 }
             }
             scriptPath('ci-cd/jenkins/Jenkinsfile.hebergement')
-            lightweight(false)
+            lightweight(true)
         }
     }
 
