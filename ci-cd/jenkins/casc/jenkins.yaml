@@ -55,6 +55,9 @@ jobs:
       folder('applications/airquality')
 
       // Configuration Git globale
+      // Objectif : Ce job a pour but de configurer globalement Git sur l'agent Jenkins (le master dans ce cas, car il n'y a pas d'agent spécifié pour ce job simple). Il exécute des commandes git config --global ... pour des paramètres comme core.longpaths, http.sslVerify, et safe.directory.
+      // Déclenchement : Il est configuré pour s'exécuter périodiquement toutes les 30 minutes (cron('H/30 * * * *')).
+
       job('git-config') {
         description('Configuration Git globale pour Jenkins')
         steps {
@@ -147,6 +150,60 @@ jobs:
             scriptPath('ci-cd/Jenkinsfile')
             lightweight(false)
           }
+        }
+      }
+
+      // AJOUT DU SEED JOB pour les pipelines d'infrastructure et de préparation d'image
+      pipelineJob('seed-job-hebergement') {
+        description('Seed job pour créer/mettre à jour les jobs d\\'infrastructure et de préparation d\\'image à partir des scripts JobDSL.')
+        definition {
+          cpsScm {
+            scm {
+              git {
+                remote {
+                  url('https://github.com/bigmoletos/hebergement_serveur.git') // Assurez-vous que c'est le bon dépôt contenant les DSL
+                  credentials('github-hebergement') // Credential GitHub pour ce dépôt
+                }
+                branch('*/main') // Ou la branche où se trouvent vos fichiers DSL
+              }
+            }
+            // Script pipeline inline pour exécuter le JobDSL
+            script("""
+              pipeline {
+                agent any
+                stages {
+                  stage('Generate Infrastructure Jobs') {
+                    steps {
+                      jobDsl {
+                        targets('ci-cd/jenkins/casc/jobs/hebergement-pipeline.groovy',
+                                'ci-cd/jenkins/casc/jobs/preparation_image_docker_ansible.groovy')
+                        // removedJobAction('DELETE') // Optionnel: supprime les jobs qui ne sont plus dans les DSL
+                        // removedViewAction('DELETE') // Optionnel
+                        // ignoreExisting(false)      // Optionnel: mettre à jour les jobs existants
+                        // lookupStrategy('SEED_JOB') // Les chemins dans targets() sont relatifs au workspace du seed-job
+                      }
+                    }
+                  }
+                }
+              }
+            """.stripIndent())
+            lightweight(true) // Généralement true pour les seed jobs qui ne font que générer d'autres jobs
+          }
+        }
+        // Déclencheur pour le seed job : par exemple, à chaque push sur le dépôt hebergement_serveur
+        // ou un SCM polling régulier.
+        triggers {
+          // Exemple de SCM polling toutes les 15 minutes (à ajuster)
+          // scm('H/15 * * * *')
+          // Pour un déclenchement par webhook GitHub, assurez-vous que le webhook est configuré sur le dépôt GitHub
+          // et que Jenkins est accessible publiquement ou via un tunnel ngrok pour les tests locaux.
+          // Le plugin GitHub doit être configuré pour gérer les webhooks.
+          // Pour cet exemple, je vais laisser un déclencheur manuel ou un polling simple
+          // car la configuration complète du webhook est hors de la portée de cette modification de fichier.
+          // Si vous avez des webhooks configurés pour GitHub, vous pouvez utiliser :
+          githubPush()
+          // Sinon, pour un test, un polling est plus simple à mettre en place initialement :
+          // cron('H/15 * * * *') // Vérifie les changements toutes les 15 minutes
         }
       }
 

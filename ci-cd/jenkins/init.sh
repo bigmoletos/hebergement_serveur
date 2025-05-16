@@ -5,8 +5,8 @@
 # - Ajoute dynamiquement tous les sous-dossiers Jenkins comme safe.directory pour Git
 # - Lance le script de support Jenkins
 # =====================================================
-# Auteur : [Votre nom]
-# Date : [Date de modification]
+# Auteur : Bigmoletos
+# Date : 15-04-2025
 # =====================================================
 set -e
 

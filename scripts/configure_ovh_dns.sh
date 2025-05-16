@@ -22,7 +22,7 @@
 #   - Services: portainer, jenkins, vault, traefik
 #   - Monitoring: grafana, prometheus
 #
-# Auteur: [Votre nom]
+# Auteur: Bigmoletos
 # Date: [Date de création]
 # Version: 1.0
 # =============================================================================

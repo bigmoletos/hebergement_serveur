@@ -9,8 +9,8 @@ import java.util.logging.Logger
 // - Configure la connexion GitLab pour l'intégration continue
 // - Définit les timeouts, l'API token, et les logs de debug
 // =====================================================
-// Auteur : [Votre nom]
-// Date : [Date de modification]
+// Auteur : Bigmoletos
+// Date : 15-04-2025
 // =====================================================
 
 // Configuration souhaitée

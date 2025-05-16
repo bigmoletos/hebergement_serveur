@@ -2,9 +2,14 @@
 // Pipeline JobDSL : gestion de la configuration d'hébergement
 // - Surveille le dépôt GitHub d'hébergement
 // - Applique les mises à jour de configuration nécessaires
+// Objectif : Ce pipeline est conçu pour gérer la configuration de l'infrastructure d'hébergement elle-même. Il surveille le dépôt hebergement_serveur sur GitHub et, en cas de changement, exécute le Jenkinsfile.hebergement.
+// Déclenchement :
+// Il est configuré pour se déclencher sur un githubPush grâce à pipelineTriggers { triggers { githubPush() } }.
+// Utilisation / Impact :
+// Ce job exécute le hebergement_serveur/ci-cd/jenkins/Jenkinsfile.hebergement.
 // =====================================================
-// Auteur : [Votre nom]
-// Date : [Date de modification]
+// Auteur : Bigmoletos
+// Date : 15-04-2025
 // =====================================================
 // Création des dossiers parents nécessaires
 folder('infrastructure')

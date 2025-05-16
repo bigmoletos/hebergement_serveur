@@ -2,8 +2,8 @@
 // Pipeline JobDSL : CI/CD pour l'application AirQuality
 // - Déclencheur GitLab, gestion des logs, configuration globale
 // =====================================================
-// Auteur : [Votre nom]
-// Date : [Date de modification]
+// Auteur : Bigmoletos
+// Date : 15-04-2025
 // =====================================================
 
 folder('applications')

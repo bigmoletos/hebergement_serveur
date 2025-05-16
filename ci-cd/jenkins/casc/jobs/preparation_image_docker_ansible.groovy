@@ -6,8 +6,8 @@
 // - Pousse l'image sur Docker Hub
 // - Utilisé pour les déploiements automatisés avec Ansible
 // =====================================================
-// Auteur : [Votre nom]
-// Date : [Date de modification]
+// Auteur : Bigmoletos
+// Date : 15-04-2025
 // =====================================================
 
 // Définit un nouveau Pipeline Job nommé 'preparation_image_docker_ansible'
