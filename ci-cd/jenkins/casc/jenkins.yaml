@@ -108,6 +108,8 @@ jobs:
       // Création des dossiers
       folder('applications')
       folder('applications/airquality')
+      folder('infrastructure')
+      folder('infrastructure/hebergement')
 
       // Configuration Git globale
       // Objectif : Ce job a pour but de configurer globalement Git sur l'agent Jenkins (le master dans ce cas, car il n'y a pas d'agent spécifié pour ce job simple). Il exécute des commandes git config --global ... pour des paramètres comme core.longpaths, http.sslVerify, et safe.directory.
