@@ -15,7 +15,7 @@
 folder('infrastructure')
 folder('infrastructure/hebergement')
 
-pipelineJob('infrastructure/hebergement/config-update') {
+pipelineJob('infrastructure_hebergement_config_update') {
     description('''Pipeline pour la gestion de la configuration d'hébergement
     Ce pipeline surveille les changements dans le dépôt GitHub d'hébergement
     et applique les mises à jour de configuration nécessaires.''')

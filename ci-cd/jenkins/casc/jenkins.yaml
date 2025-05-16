@@ -250,14 +250,7 @@ jobs:
                 stage('Generate Infrastructure Jobs from DSL') {
                   echo 'Exécution de JobDSL sur les fichiers cibles...'
                   jobDsl(
-                    scripts: [
-                      'ci-cd/jenkins/casc/jobs/hebergement-pipeline.groovy',
-                      'ci-cd/jenkins/casc/jobs/preparation_image_docker_ansible.groovy'
-                    ],
-                    // removedJobAction: 'DELETE',
-                    // removedViewAction: 'DELETE',
-                    // ignoreExisting: false,
-                    // lookupStrategy: 'SEED_JOB'
+                    targets: 'ci-cd/jenkins/casc/jobs/*.groovy'
                   )
                   echo 'Génération des jobs JobDSL terminée.'
                 }
