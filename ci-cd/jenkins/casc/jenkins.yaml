@@ -230,7 +230,7 @@ jobs:
       //   3. L'étape 'jobDsl' de ce script pipeline lit les fichiers .groovy cibles.
       //   4. Les jobs décrits dans ces fichiers .groovy sont créés ou mis à jour dans Jenkins.
       pipelineJob('seed-job-hebergement') {
-        description('Seed job pour créer/mettre à jour les jobs d\\'infrastructure et de préparation d\\'image à partir des scripts JobDSL.')
+        description('Seed job pour créer/mettre à jour les jobs d\'infrastructure et de préparation d\'image à partir des scripts JobDSL.')
         definition {
           cpsScm {
             scm {
