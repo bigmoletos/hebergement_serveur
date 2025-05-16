@@ -229,50 +229,45 @@ jobs:
       //   2. Exécute un script pipeline (ici, défini inline).
       //   3. L'étape 'jobDsl' de ce script pipeline lit les fichiers .groovy cibles.
       //   4. Les jobs décrits dans ces fichiers .groovy sont créés ou mis à jour dans Jenkins.
-      pipelineJob('seed-job-hebergement') {
-        description('Seed job pour créer/mettre à jour les jobs d\'infrastructure et de préparation d\'image à partir des scripts JobDSL.')
-        definition {
-          cpsScm {
-            scm {
-              git {
-                remote {
-                  url('https://github.com/bigmoletos/hebergement_serveur.git') // URL du dépôt contenant les fichiers JobDSL
-                  credentials('github-hebergement') // Credential Jenkins pour accéder à ce dépôt GitHub
-                }
-                branch('*/main') // Branche à utiliser pour trouver les fichiers JobDSL
-              }
-            }
-            // Script pipeline inline qui sera exécuté par le seed job.
-            // Ce pipeline contient l'étape 'jobDsl' pour traiter les fichiers .groovy.
-            script("""
-              pipeline {
-                agent any // Ce pipeline simple peut s'exécuter sur n'importe quel agent disponible.
-                stages {
-                  stage('Generate Infrastructure Jobs from DSL') { // Nom du stage descriptif
-                    steps {
-                      // Étape clé qui exécute le JobDSL
-                      jobDsl {
-                        // Liste des fichiers .groovy à traiter.
-                        // Les chemins sont relatifs au workspace du 'seed-job-hebergement' après le checkout SCM.
-                        targets('ci-cd/jenkins/casc/jobs/hebergement-pipeline.groovy',
-                                'ci-cd/jenkins/casc/jobs/preparation_image_docker_ansible.groovy')
+      pipelineJob('seed-job-infrastructure-ansible-docker') {
+        description('Seed job pour créer/mettre à jour les jobs d\'infrastructure (hébergement, image Ansible) à partir des scripts JobDSL. (Test CPS direct actif)')
 
-                        // --- Options JobDSL (décommenter et ajuster si besoin) ---
-                        // removedJobAction('DELETE') // Action à effectuer si un job généré précédemment n'est plus dans les DSL (ex: DELETE, IGNORE, DISABLE)
-                        // removedViewAction('DELETE') // Idem pour les vues
-                        // ignoreExisting(false)      // Si true, ne met pas à jour les jobs qui existent déjà. false pour les mettre à jour.
-                        // lookupStrategy('SEED_JOB') // Stratégie pour résoudre les chemins relatifs dans les scripts DSL. SEED_JOB est souvent le défaut pertinent.
-                      }
-                    }
-                  }
+        // --- CONFIGURATION DE TEST (cps direct) ACTIVE ---
+        definition {
+          cps {
+            script("""
+              node('master') { // Remplacez 'master' par le label de votre agent Jenkins principal si différent
+                stage('Checkout SCM for DSL Scripts') {
+                  echo 'Nettoyage du workspace précédent...'
+                  cleanWs()
+
+                  echo 'Clonage du dépôt hebergement_serveur pour les scripts JobDSL...'
+                  git branch: 'main',
+                      credentialsId: 'github-hebergement',
+                      url: 'https://github.com/bigmoletos/hebergement_serveur.git'
+                }
+
+                stage('Generate Infrastructure Jobs from DSL') {
+                  echo 'Exécution de JobDSL sur les fichiers cibles...'
+                  jobDsl(
+                    scripts: [
+                      'ci-cd/jenkins/casc/jobs/hebergement-pipeline.groovy',
+                      'ci-cd/jenkins/casc/jobs/preparation_image_docker_ansible.groovy'
+                    ],
+                    // removedJobAction: 'DELETE',
+                    // removedViewAction: 'DELETE',
+                    // ignoreExisting: false,
+                    // lookupStrategy: 'SEED_JOB'
+                  )
+                  echo 'Génération des jobs JobDSL terminée.'
                 }
               }
-            """.stripIndent()) // stripIndent() pour nettoyer l'indentation du script Groovy multiligne.
-            lightweight(true) // Optimisation pour les pipelines qui ne font que générer d'autres jobs (pas d'artefacts lourds, etc.)
+            """.stripIndent())
+            // sandbox(true)
           }
         }
-        // Déclencheurs pour le 'seed-job-hebergement'.
-        // Choisir la méthode la plus appropriée pour votre environnement.
+
+        // Les déclencheurs restent les mêmes
         triggers {
           // OPTION 1: Webhook GitHub (préféré pour une réaction immédiate aux changements)
           // Nécessite que Jenkins soit accessible depuis GitHub et que le plugin GitHub soit configuré.
