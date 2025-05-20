@@ -279,6 +279,25 @@ jobs:
         }
       }
 
+      // Seed job pour créer/mettre à jour le pipeline applicatif Qualité Air
+      pipelineJob('seed-job-applications-airquality') {
+        description('Seed job pour créer/mettre à jour le pipeline applicatif Qualité Air à partir du dépôt du projet')
+        definition {
+          cpsScm {
+            scm {
+              git {
+                remote {
+                  url('https://gitlab.com/iaproject-fr/airquality.git')
+                  credentials('credentialGitlab')
+                }
+                branch('*/main')
+              }
+            }
+            scriptPath('ci-cd/Jenkinsfile')
+          }
+        }
+      }
+
 # Script Groovy pour définir les niveaux de log
 security:
   scriptApproval:
