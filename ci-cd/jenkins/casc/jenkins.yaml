@@ -148,68 +148,6 @@ jobs:
         }
       }
 
-      // Pipeline principal
-      pipelineJob('applications/airquality/build-and-deploy') {
-        description('Pipeline CI/CD pour l\'application de qualité de l\'air')
-
-        // Configuration des propriétés du job
-        properties {
-          disableConcurrentBuilds()
-          pipelineTriggers {
-            triggers {
-              gitlab {
-                triggerOnPush(true)
-                triggerOnMergeRequest(true)
-                triggerOnNoteRequest(false)
-                noteRegex("Jenkins please retry")
-                skipWorkInProgressMergeRequest(true)
-                ciSkip(true)
-                setBuildDescription(true)
-                addNoteOnMergeRequest(true)
-                addCiMessage(true)
-                addVoteOnMergeRequest(true)
-                acceptMergeRequestOnSuccess(false)
-                branchFilterType("NameBasedFilter")
-                includeBranchesSpec("main develop feature/* hotfix/*")
-                secretToken(System.getenv('GITLAB_WEBHOOK_SECRET'))
-              }
-            }
-          }
-        }
-
-        definition {
-          cpsScm {
-            scm {
-              git {
-                remote {
-                  url('https://gitlab.com/iaproject-fr/airquality.git')
-                  credentials('credentialGitlab')
-                }
-                branch('*/main')
-                extensions {
-                  cleanBeforeCheckout()
-                  cloneOptions {
-                    depth(1)
-                    shallow(true)
-                    timeout(10)
-                    noTags(true)
-                  }
-                  wipeOutWorkspace()
-                  submoduleOptions {
-                    disable(true)
-                    recursive(false)
-                    tracking(false)
-                  }
-                  localBranch('main')
-                }
-              }
-            }
-            scriptPath('ci-cd/Jenkinsfile')
-            lightweight(false)
-          }
-        }
-      }
-
       // --- SEED JOB POUR LES PIPELINES D'INFRASTRUCTURE ET DE PREPARATION D'IMAGE ---
       // Objectif: Ce "seed job" est un pipeline spécial dont le rôle est de lire des scripts
       //           JobDSL (des fichiers .groovy) qui décrivent d'autres jobs Jenkins.
