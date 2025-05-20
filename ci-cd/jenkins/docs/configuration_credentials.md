@@ -10,7 +10,7 @@ Ce document décrit la configuration des credentials nécessaires pour le bon fo
 
 - `jenkins-ssh` : Clé SSH pour le nœud master Jenkins
   - Type : SSH avec clé privée
-  - Variable : `JENKINS_SSH_PRIVATE_KEY`
+  - Variable : `airquality_server_key`
 
 - `gitlab-token` : Token API GitLab pour l'intégration Jenkins
   - Type : GitLab API Token
