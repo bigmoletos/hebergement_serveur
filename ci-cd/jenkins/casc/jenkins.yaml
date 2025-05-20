@@ -382,6 +382,14 @@ credentials:
               secret: ${OVH_DNS_SUBDOMAIN}
               description: "Sous-domaine OVH pour le déploiement"
 
+          # Credential de type usernamePassword pour le token API Jenkins
+          - usernamePassword:
+              scope: GLOBAL
+              id: "jenkins-api-token"
+              username: "${JENKINS_ADMIN_USER}"
+              password: "${JENKINS_API_TOKEN}"
+              description: "Token API Jenkins pour déclenchement via GitLab CI"
+
 # --- Section Tool au niveau racine --- #
 tool:
   git:
