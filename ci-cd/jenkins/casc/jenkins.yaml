@@ -296,8 +296,8 @@ credentials:
               id: "jenkins-ssh"
               username: "jenkins"
               privateKeySource:
-                fileOnMaster:
-                  privateKeyFile: /var/jenkins_secrets/airquality_server_key
+                directEntry:
+                  privateKey: ${airquality_server_key}
               description: "SSH credentials for Jenkins master node"
           # --- Credentials Standard Jenkins --- #
           # Token GitLab pour la connexion Jenkins et le scan des dépôts (en tant que GitLab API Token)
