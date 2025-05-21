@@ -106,8 +106,8 @@ jenkins:
 jobs:
   - script: |
       // Création des dossiers
-      folder('applications')
-      folder('applications/airquality')
+      // folder('applications')
+      // folder('applications/airquality')
       folder('infrastructure')
       folder('infrastructure/hebergement')
 
