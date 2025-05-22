@@ -235,14 +235,11 @@ jobs:
           }
         }
         triggers {
-          gitlabPush()
-          // Pour une configuration plus avancée, vous pourriez avoir besoin d'options comme:
-          // gitlab {
-          //   triggerOnPush(true)
-          //   triggerOnMergeRequest(false) // Ou true si besoin
-          //   branchFilterType('All') // Ou 'RegexBasedFilter' avec sourceBranchRegex
-          //   secretToken(System.getenv('GITLAB_WEBHOOK_SECRET')) // Si vous utilisez un secret token
-          // }
+          gitlab {
+            triggerOnPush(true)
+            triggerOnMergeRequest(false)
+            secretToken(System.getenv('GITLAB_WEBHOOK_SECRET'))
+          }
         }
       }
 
