@@ -20,14 +20,42 @@ pipelineJob('infrastructure/hebergement/test_integration_airquality') {
         githubProjectUrl('https://gitlab.com/iaproject-fr/airquality.git')
         // Paramètres du build
         parameters {
-            stringParam('BRANCH_NAME', 'main', 'Branche à tester')
-            stringParam('TEST_VOLUME_NAME', 'integration_tests_vol_${BUILD_TAG}', 'Nom du volume pour les tests')
-            booleanParam('DEBUG_MODE', false, 'Activer le mode debug pour plus de logs')
+            stringParam {
+                name('BRANCH_NAME')
+                defaultValue('main')
+                description('Branche à tester')
+            }
+            stringParam {
+                name('TEST_VOLUME_NAME')
+                defaultValue('integration_tests_vol_${BUILD_TAG}')
+                description('Nom du volume pour les tests')
+            }
+            booleanParam {
+                name('DEBUG_MODE')
+                defaultValue(false)
+                description('Activer le mode debug pour plus de logs')
+            }
             // Paramètres Docker
-            stringParam('DOCKER_REGISTRY', 'docker.io', 'Registry Docker à utiliser')
-            stringParam('DOCKER_NAMESPACE', '${DOCKER_USERNAME}', 'Namespace Docker (votre username)')
-            stringParam('IMAGE_NAME', 'air_quality_ihm', 'Nom de l\'image Docker')
-            stringParam('IMAGE_TAG', 'latest', 'Tag de l\'image Docker')
+            stringParam {
+                name('DOCKER_REGISTRY')
+                defaultValue('docker.io')
+                description('Registry Docker à utiliser')
+            }
+            stringParam {
+                name('DOCKER_NAMESPACE')
+                defaultValue('${DOCKER_USERNAME}')
+                description('Namespace Docker (votre username)')
+            }
+            stringParam {
+                name('IMAGE_NAME')
+                defaultValue('air_quality_ihm')
+                description('Nom de l\'image Docker')
+            }
+            stringParam {
+                name('IMAGE_TAG')
+                defaultValue('latest')
+                description('Tag de l\'image Docker')
+            }
         }
     }
 
