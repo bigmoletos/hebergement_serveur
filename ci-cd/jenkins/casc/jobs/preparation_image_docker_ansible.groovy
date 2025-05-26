@@ -48,8 +48,6 @@ pipelineJob('preparation_image_docker_ansible') {
             triggerOnMergeRequest(false) // Désactivé pour ce job
             triggerOpenMergeRequestOnPush("never")
 
-            // ---- FILTRES TEMPORAIREMENT SUPPRIMÉS POUR DÉBOGAGE ----
-            /*
             // Filtre pour ne déclencher que sur les branches main ou dev
             branchFilter {
                 type = 'RegexBasedFilter'
@@ -60,8 +58,6 @@ pipelineJob('preparation_image_docker_ansible') {
                 type = 'PathBasedFilter'
                 includedPaths = 'ansible/.*'
             }
-            */
-            // ---- FIN DE LA SUPPRESSION TEMPORAIRE ----
 
             secretToken(System.getenv('GITLAB_WEBHOOK_SECRET')) // Récupère le token depuis une variable d'env Jenkins
         }
