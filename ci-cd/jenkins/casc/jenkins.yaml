@@ -67,29 +67,8 @@ jenkins:
   numExecutors: 2
   mode: NORMAL
   scmCheckoutRetryCount: 3
-  labelString: "master"
-  # Configuration du nœud principal
-  nodes:
-    - permanent:
-        name: "master"
-        remoteFS: "/var/jenkins_home"
-        numExecutors: 2
-        labelString: "master"
-        mode: NORMAL
-        launcher:
-          ssh:
-            host: "localhost"
-            port: 22
-            credentialsId: "jenkins-ssh"
-        retentionStrategy:
-          always: {}
-        nodeProperties:
-          - envVars:
-              env:
-                - key: "JENKINS_HOME"
-                  value: "/var/jenkins_home"
-                - key: "JENKINS_SLAVE_AGENT_PORT"
-                  value: "50000"
+  # Suppression de la configuration du nœud master problématique
+  # Le nœud master est automatiquement configuré par Jenkins
   # securityRealm:
   #   local:
   #     allowsSignup: false
