@@ -5,7 +5,7 @@
 // - Vérifie l'intégration des différents composants
 // =====================================================
 // Auteur : Bigmoletos
-// Date : 15-04-2025
+// Date : 24-05-2025
 // =====================================================
 
 pipelineJob('infrastructure/hebergement/test_integration_airquality') {
