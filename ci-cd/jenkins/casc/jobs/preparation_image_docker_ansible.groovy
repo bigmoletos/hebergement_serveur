@@ -42,22 +42,15 @@ pipelineJob('preparation_image_docker_ansible') {
     triggers {
         // Déclencheur GitLab sur Push
         gitlab {
-            // La connexion est implicitement celle configurée globalement
-            // connection('GitLab') // SUPPRIMÉ - Non valide ou nécessaire ici
             triggerOnPush(true)
             triggerOnMergeRequest(false) // Désactivé pour ce job
             triggerOpenMergeRequestOnPush("never")
 
             // Filtre pour ne déclencher que sur les branches main ou dev
-            branchFilter {
-                type = 'RegexBasedFilter'
-                sourceBranchRegex = '^(main|dev)$'
-            }
-            // Filtre pour ne déclencher que si les changements concernent le dossier ansible/
-            pathFilter {
-                type = 'PathBasedFilter'
-                includedPaths = 'ansible/.*'
-            }
+            sourceBranchRegex('^(main|dev)$')
+
+            // Note: Le filtrage par chemin n'est pas directement supporté dans JobDSL
+            // Il faudra utiliser des conditions dans le Jenkinsfile si nécessaire
 
             secretToken(System.getenv('GITLAB_WEBHOOK_SECRET')) // Récupère le token depuis une variable d'env Jenkins
         }
