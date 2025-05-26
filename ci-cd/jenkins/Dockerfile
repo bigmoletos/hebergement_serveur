@@ -23,7 +23,7 @@ ENV PYTHONUNBUFFERED=1 \
 
 # Installation des dépendances Python globales
 RUN python3 -m pip install --upgrade pip && \
-    python3 -m pip install pytest pytest-cov
+    python3 -m pip install pytest pytest-cov requests
 
 # Ajout de l'utilisateur jenkins au groupe docker
 RUN usermod -aG docker jenkins
