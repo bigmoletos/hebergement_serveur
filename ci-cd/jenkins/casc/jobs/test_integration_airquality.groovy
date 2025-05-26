@@ -102,13 +102,17 @@ pipelineJob('infrastructure/hebergement/test_integration_airquality') {
 
     // Configuration des credentials
     configure { project ->
-        project / 'properties' / 'org.jenkinsci.plugins.workflow.job.properties.PipelineTriggersJobProperty' / 'triggers' {
+        // Ajout du trigger GitHub
+        def props = project / 'properties'
+        def triggersNode = props / 'org.jenkinsci.plugins.workflow.job.properties.PipelineTriggersJobProperty'
+        triggersNode / 'triggers' {
             'com.cloudbees.jenkins.GitHubPushTrigger' {
                 spec('')
             }
         }
         // Ajout des credentials Docker Hub
-        project / 'buildWrappers' << 'org.jenkinsci.plugins.credentialsbinding.impl.SecretBuildWrapper' {
+        def wrappers = project / 'buildWrappers'
+        wrappers << 'org.jenkinsci.plugins.credentialsbinding.impl.SecretBuildWrapper' {
             bindings {
                 'org.jenkinsci.plugins.credentialsbinding.impl.UsernamePasswordMultiBinding' {
                     credentialsId('dockerhub_airquality')
