@@ -87,6 +87,7 @@ pipelineJob('infrastructure/hebergement/test_integration_airquality') {
             triggerOpenMergeRequestOnPush('source')
             secretToken(System.getenv('GITLAB_WEBHOOK_SECRET'))
         }
+        githubPush()
     }
 
     // Autres propriétés du job
@@ -100,28 +101,10 @@ pipelineJob('infrastructure/hebergement/test_integration_airquality') {
         artifactNumToKeep(5)
     }
 
-    // Configuration des credentials
-    configure { project ->
-        // Ajout du trigger GitHub
-        def props = project / 'properties'
-        def triggersNode = props / 'org.jenkinsci.plugins.workflow.job.properties.PipelineTriggersJobProperty'
-        triggersNode / 'triggers' {
-            'com.cloudbees.jenkins.GitHubPushTrigger' {
-                spec('')
-            }
-        }
-        // Ajout des credentials Docker Hub
-        // Correction robuste : on utilise la liste retournée par / et on crée le nœud si besoin
-        def wrappersList = project / 'buildWrappers'
-        def wrappersNode = wrappersList ? wrappersList[0] : project.appendNode('buildWrappers')
-        wrappersNode << 'org.jenkinsci.plugins.credentialsbinding.impl.SecretBuildWrapper' {
-            bindings {
-                'org.jenkinsci.plugins.credentialsbinding.impl.UsernamePasswordMultiBinding' {
-                    credentialsId('dockerhub_airquality')
-                    usernameVariable('DOCKER_USERNAME')
-                    passwordVariable('DOCKER_PASSWORD')
-                }
-            }
+    // Configuration des credentials via wrappers natifs JobDSL
+    wrappers {
+        credentialsBinding {
+            usernamePassword('DOCKER_USERNAME', 'DOCKER_PASSWORD', 'dockerhub_airquality')
         }
     }
 }
