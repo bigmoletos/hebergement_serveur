@@ -74,7 +74,7 @@ pipelineJob('infrastructure/hebergement/test_integration_airquality') {
                     }
                 }
             }
-            scriptPath('ci-cd/jenkins/Jenkinsfile.integration-tests')
+            scriptPath('ci-cd/Jenkinsfile.integration')
             lightweight(true)
         }
     }
