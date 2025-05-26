@@ -111,10 +111,9 @@ pipelineJob('infrastructure/hebergement/test_integration_airquality') {
             }
         }
         // Ajout des credentials Docker Hub
-        def wrappersNode = project.get('buildWrappers')
-        if (!wrappersNode) {
-            wrappersNode = project.appendNode('buildWrappers')
-        }
+        // Correction robuste : on utilise la liste retournée par / et on crée le nœud si besoin
+        def wrappersList = project / 'buildWrappers'
+        def wrappersNode = wrappersList ? wrappersList[0] : project.appendNode('buildWrappers')
         wrappersNode << 'org.jenkinsci.plugins.credentialsbinding.impl.SecretBuildWrapper' {
             bindings {
                 'org.jenkinsci.plugins.credentialsbinding.impl.UsernamePasswordMultiBinding' {
