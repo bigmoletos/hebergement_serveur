@@ -100,11 +100,4 @@ pipelineJob('infrastructure/hebergement/test_integration_airquality') {
         numToKeep(10)
         artifactNumToKeep(5)
     }
-
-    // Configuration des credentials via wrappers natifs JobDSL
-    wrappers {
-        credentialsBinding {
-            usernamePassword('DOCKER_USERNAME', 'DOCKER_PASSWORD', 'dockerhub_airquality')
-        }
-    }
 }
