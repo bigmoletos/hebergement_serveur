@@ -111,11 +111,11 @@ pipelineJob('infrastructure/hebergement/test_integration_airquality') {
             }
         }
         // Ajout des credentials Docker Hub
-        def wrappers = project / 'buildWrappers'
-        if (wrappers.size() == 0) {
-            wrappers = project.appendNode('buildWrappers')
+        def wrappersNode = project.get('buildWrappers')
+        if (!wrappersNode) {
+            wrappersNode = project.appendNode('buildWrappers')
         }
-        wrappers << 'org.jenkinsci.plugins.credentialsbinding.impl.SecretBuildWrapper' {
+        wrappersNode << 'org.jenkinsci.plugins.credentialsbinding.impl.SecretBuildWrapper' {
             bindings {
                 'org.jenkinsci.plugins.credentialsbinding.impl.UsernamePasswordMultiBinding' {
                     credentialsId('dockerhub_airquality')
