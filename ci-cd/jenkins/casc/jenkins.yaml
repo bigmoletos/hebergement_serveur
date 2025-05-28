@@ -313,6 +313,16 @@ credentials:
               password: ${GITHUB_TOKEN}
               description: "GitHub Credentials pour le dépôt d'hébergement"
 
+          # --- Credential SSH pour le serveur de production AirQuality --- #
+          - basicSSHUserPrivateKey:
+              scope: GLOBAL
+              id: "ssh_key_production_server"
+              username: "user"
+              privateKeySource:
+                directEntry:
+                  privateKey: ${AIRQUALITY_SSH_KEY}
+              description: "SSH credentials pour le serveur de production AirQuality (192.168.1.134)"
+
           # Credentials OVH pour le DNS
           - string:
               scope: GLOBAL
