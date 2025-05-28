@@ -320,7 +320,7 @@ credentials:
               username: "user"
               privateKeySource:
                 directEntry:
-                  privateKey: ${AIRQUALITY_SSH_KEY}
+                  privateKey: ${airquality_serveur_key}
               description: "SSH credentials pour le serveur de production AirQuality (192.168.1.134)"
 
           # Credentials OVH pour le DNS
