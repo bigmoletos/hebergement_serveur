@@ -34,7 +34,7 @@ providers:
   docker:
     endpoint: "unix:///var/run/docker.sock"
     exposedByDefault: false
-    network: proxy
+    network: traefik-public
   file:
     directory: "/etc/traefik/dynamic"
     watch: true
