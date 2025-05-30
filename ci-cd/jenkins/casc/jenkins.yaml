@@ -320,6 +320,7 @@ credentials:
               username: "user"
               privateKeySource:
                 directEntry:
+                  #  Remplacement par la variable d'environnement AIRQUALITY_SSH_KEY en maintenant la variable d'environnement airquality_server_key
                   privateKey: ${AIRQUALITY_SSH_KEY}
               description: "SSH credentials pour le serveur de production AirQuality (192.168.1.134)"
 
