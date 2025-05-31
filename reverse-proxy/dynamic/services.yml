@@ -36,11 +36,7 @@ http:
     airquality:
       loadBalancer:
         servers:
-          - url: "http://airquality:8000"  # Port à ajuster selon votre configuration
-        healthCheck:
-          path: "/health"
-          interval: "10s"
-          timeout: "5s"
+          - url: "http://air_quality_ihm_production:8093"
 
     grafana:
       loadBalancer:
