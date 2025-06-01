@@ -1,13 +1,5 @@
 http:
   routers:
-    airquality:
-      rule: "Host(`airquality.iaproject.fr`)"
-      entryPoints:
-        - "websecure"
-      service: "airquality"
-      tls:
-        certResolver: "letsencrypt"
-
     grafana:
       rule: "Host(`grafana.iaproject.fr`)"
       entryPoints:
@@ -33,11 +25,6 @@ http:
         certResolver: "letsencrypt"
 
   services:
-    airquality:
-      loadBalancer:
-        servers:
-          - url: "http://air_quality_ihm_production:8093"
-
     grafana:
       loadBalancer:
         servers:
